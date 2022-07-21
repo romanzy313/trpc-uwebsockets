@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "moduleResolution": "node",
-    "target": "es2020",
+    "target": "ES2020",
+    "module": "commonjs",
     "declaration": true,
     "declarationDir": "types",
     "skipLibCheck": true,

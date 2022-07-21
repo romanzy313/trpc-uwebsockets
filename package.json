@@ -2,8 +2,9 @@
   "private": false,
   "name": "trpc-uwebsockets",
   "description": "uWebSockets adapter for tRPC",
-  "version": "0.8.0",
-  "module": "./dist/index.js",
+  "version": "0.8.1",
+  "main": "./dist/index.js",
+  "type": "commonjs",
   "types": "./types/index.d.ts",
   "scripts": {
     "start": "jest --watch",

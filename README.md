@@ -5,7 +5,7 @@
 # Installation
 
 ```bash
-yarn install trpc-uwebsockets
+yarn add trpc-uwebsockets
 ```
 
 or
