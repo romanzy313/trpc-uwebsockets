@@ -11,11 +11,6 @@
     "lib": ["esnext", "dom"],
     "typeRoots": ["node_modules/@types"],
     "types": ["jest", "node"],
-    "baseUrl": ".",
-    "paths": {
-      "lib-name": ["src"]
-    },
-
     "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": false,
@@ -27,5 +22,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "exclude": ["node_modules", "dist", "src/**/*.spec.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test/*.spec.ts"]
 }

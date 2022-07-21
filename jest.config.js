@@ -1,20 +1,30 @@
 /* eslint-disable no-undef */
-// Sync object
+// /* eslint-disable no-undef */
+// // Sync object
+// /** @type {import('@jest/types').Config.InitialOptions} */
+// const config = {
+//   // verbose: true,
+//   transform: {
+//     '^.+\\.(t|j)sx?$': ['@swc/jest'],
+//   },
+//   // if browser library:
+//   testEnvironment: 'jest-environment-jsdom',
+
+//   // if difficulties with imports:
+//   extensionsToTreatAsEsm: ['.ts'],
+//   moduleNameMapper: {
+//     '^(\\.{1,2}/.*)\\.js$': '$1',
+//   },
+//   transformIgnorePatterns: ['<rootDir>/node_modules/'],
+// };
+
 /** @type {import('@jest/types').Config.InitialOptions} */
 const config = {
-  // verbose: true,
+  testEnvironment: 'node',
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transform: {
-    '^.+\\.(t|j)sx?$': ['@swc/jest'],
+    '^.+\\.ts?$': 'ts-jest',
   },
-  // if browser library:
-  // testEnvironment: 'jsdom',
-
-  // if difficulties with imports:
-  // extensionsToTreatAsEsm: ['.ts'],
-  // moduleNameMapper: {
-  //   '^(\\.{1,2}/.*)\\.js$': '$1',
-  // },
-  // transformIgnorePatterns: ['<rootDir>/node_modules/'],
+  transformIgnorePatterns: ['<rootDir>/node_modules/'],
 };
-
 module.exports = config;

@@ -1,65 +1,80 @@
-# Getting started
+# trpc-uwebsockets
 
-```bash
-git clone https://github.com/romanzy-1612/modern-ts-lib-starter.git PROJECTNAME
-cd PROJECTNAME
-yarn install
-yarn start
-```
-
-Replace placeholders such as <<LIB-NAME>>, <<DESCRIPTION>>, <<AUTHOR>>, <<GIT-USERNAME>>. You can search and replace with regex pattern <<.\*>>
-
-# Whats included
-
-- Jest testing with watch mode
-- Rollup bunding with SWC to ES and UMD modules (NOTE: not sure if UMD actually works)
-- Minimal eslint and prettier configuration
-- package.json is ready for publishing to npm
-- Templates with placeholders: readme, license, bug report, feature request
-
-# Create example
-
-run `yarn create vite example` and reference your library with
-
-```typescript
-import { DummyClass } from '../../src';
-console.log(DummyClass);
-```
-
-# Credits
-
-Initial project setup was taken from [peer-lite](https://github.com/skyllo/peer-lite) project. Thank you skyllo!
-
-# TODO
-
-- [ ] typedoc generation
-- [ ] ci to keep packages upto date, coverage report
-
-_delete above here to start writing your README_
-
-# <<LIB-NAME>>
-
-Description
-
-# Features
+[uWebSockets.js](https://github.com/uNetworking/uWebSockets.js) adapter for [tRPC](https://trpc.io/)
 
 # Installation
 
 ```bash
-yarn install <<LIB-NAME>>
+yarn install trpc-uwebsockets
 ```
 
+or
+
 ```bash
-yarn add <<LIB-NAME>>
+yarn add trpc-uwebsockets
 ```
 
 # Usage
 
-# Examples
+Import needed packages
 
-See more examples [here](example)
+```typescript
+import { App } from 'uWebSockets.js';
+import * as trpc from '@trpc/server';
+```
 
-# API
+Define tRPC context and router
+
+```typescript
+type Context = {
+  user: {
+    name: string;
+  } | null;
+};
+
+const createContext: any = (opts: UWebSocketsContextOptions): Context => {
+  const getUser = () => {
+    if (opts.req.headers.authorization === 'meow') {
+      return {
+        name: 'KATT',
+      };
+    }
+    return null;
+  };
+
+  return {
+    user: getUser(),
+  };
+};
+
+const router = trpc.router<Context>().query('hello', {
+  input: z
+    .object({
+      who: z.string().nullish(),
+    })
+    .nullish(),
+  resolve({ input, ctx }) {
+    return {
+      text: `hello ${input?.who ?? ctx.user?.name ?? 'world'}`,
+    };
+  },
+});
+```
+
+Initialize uWebsockets server and attach tTRP router
+
+```typescript
+const app = App();
+
+createUWebSocketsHandler(app, '/trpc', {
+  router,
+  createContext,
+});
+
+app.listen('0.0.0.0', 8000, () => {
+  console.log('server listening on http://localhost:8000');
+});
+```
 
 # Testing
 
