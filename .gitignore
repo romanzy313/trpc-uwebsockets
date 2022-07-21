@@ -1,0 +1,10 @@
+node_modules/
+.idea
+*.iml
+*.log
+.DS_Store
+.vscode
+dist
+.cache
+coverage
+*-*.tgz

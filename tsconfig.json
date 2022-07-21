@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "es2020",
+    "declaration": true,
+    "declarationDir": "types",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "lib": ["esnext", "dom"],
+    "typeRoots": ["node_modules/@types"],
+    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "lib-name": ["src"]
+    },
+
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": true,
+    "noUnusedLocals": false,
+    "noFallthroughCasesInSwitch": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "exclude": ["node_modules", "dist", "src/**/*.spec.ts"]
+}
