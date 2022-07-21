@@ -8,12 +8,6 @@
 yarn add trpc-uwebsockets
 ```
 
-or
-
-```bash
-yarn add trpc-uwebsockets
-```
-
 # Usage
 
 Import needed packages

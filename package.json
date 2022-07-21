@@ -2,7 +2,7 @@
   "private": false,
   "name": "trpc-uwebsockets",
   "description": "uWebSockets adapter for tRPC",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
@@ -63,7 +63,11 @@
     "test"
   ],
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "trpc",
+    "uwebsockets",
+    "trpc adapter"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/romanzy-1612/trpc-uwebsockets.git"
