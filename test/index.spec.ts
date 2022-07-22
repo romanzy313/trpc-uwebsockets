@@ -123,6 +123,11 @@ async function startServer() {
     res.end();
   });
 
+  app.any('/*', (res) => {
+    res.writeStatus('404 NOT FOUND');
+    res.end();
+  });
+
   const { socket } = await new Promise<{
     socket: uWs.us_listen_socket;
   }>((resolve) => {
@@ -225,7 +230,9 @@ test('setting cookies and headers', async () => {
     'one=nom, two=nom%20nom'
   );
   expect(monsterRes.headers.get('x-spooked')).toEqual('true');
+});
 
+test('error handling', async () => {
   const indexRes = await fetch(`http://localhost:${testPort}`);
   expect(indexRes.status).toEqual(200);
 
@@ -239,4 +246,13 @@ test('setting cookies and headers', async () => {
     `http://localhost:${testPort}/trpc/hello?input=${badInput}`
   );
   expect(badRes.status).toEqual(400);
+
+  const badPath = await fetch(
+    `http://localhost:${testPort}/trpc/nonexisting?input=${badInput}`
+  );
+  expect(badPath.status).toEqual(400);
+
+  const uncaught = await fetch(`http://localhost:${testPort}/badurl`);
+
+  expect(uncaught.status).toEqual(404);
 });

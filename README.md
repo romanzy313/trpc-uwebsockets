@@ -65,6 +65,12 @@ createUWebSocketsHandler(app, '/trpc', {
   createContext,
 });
 
+/* dont crash on unknown request */
+app.any('/*', (res) => {
+  res.writeStatus('404 NOT FOUND');
+  res.end();
+});
+
 app.listen('0.0.0.0', 8000, () => {
   console.log('Server listening on http://localhost:8000');
 });
