@@ -1,5 +1,5 @@
 import { AnyRouter, inferRouterContext } from '@trpc/server';
-import { HttpResponse } from 'uWebSockets.js';
+import { HttpResponse, TemplatedApp } from 'uWebSockets.js';
 
 export type UWebSocketsRegisterEndpointOptions<TRouter extends AnyRouter> = {
   router: TRouter;
@@ -20,5 +20,6 @@ export type UWebSocketsResponseObject = HttpResponse;
 
 export type UWebSocketsCreateContextOptions = {
   req: UWebSocketsRequestObject;
+  uWs: TemplatedApp;
   // res: UWebSocketsResponseObject;
 };

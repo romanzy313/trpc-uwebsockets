@@ -26,12 +26,11 @@ type Context = {
   } | null;
 };
 
-const createContext: any = (opts: UWebSocketsContextOptions): Context => {
+const createContext = (opts: UWebSocketsContextOptions): Context => {
   const getUser = () => {
-    if (opts.req.headers.authorization === 'meow') {
-      return {
-        name: 'KATT',
-      };
+    if (opts?.req.headers.authorization) {
+      // const user = await decodeJwtToken(req.headers.authorization.split(' ')[1])
+      // return user;
     }
     return null;
   };
@@ -66,8 +65,26 @@ createUWebSocketsHandler(app, '/trpc', {
 });
 
 app.listen('0.0.0.0', 8000, () => {
-  console.log('server listening on http://localhost:8000');
+  console.log('Server listening on http://localhost:8000');
 });
+```
+
+# API
+
+Create context options
+
+```typescript
+type UWebSocketsCreateContextOptions = {
+  /* read-only request information */
+  req: {
+    headers: Record<string, string>;
+    method: 'POST' | 'GET';
+    query: URLSearchParams;
+    path: string;
+  };
+  /* instance of the uWebSockets server */
+  uWs: TemplatedApp;
+};
 ```
 
 # Testing

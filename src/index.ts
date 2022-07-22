@@ -60,6 +60,7 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
       //res could be proxied here
       return await opts.createContext?.({
         // res,
+        uWs: uWsApp,
         req: requestObj,
       });
     };

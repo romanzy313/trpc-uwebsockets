@@ -1,8 +1,8 @@
 {
   "private": false,
   "name": "trpc-uwebsockets",
-  "description": "uWebSockets adapter for tRPC",
-  "version": "0.8.2",
+  "description": "tRPC adapter for uWebSockets.js server",
+  "version": "0.8.3",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
