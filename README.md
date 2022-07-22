@@ -15,6 +15,7 @@ Import needed packages
 ```typescript
 import { App } from 'uWebSockets.js';
 import * as trpc from '@trpc/server';
+import z from 'zod';
 ```
 
 Define tRPC context and router
@@ -54,7 +55,7 @@ const router = trpc.router<Context>().query('hello', {
 });
 ```
 
-Initialize uWebsockets server and attach tTRP router
+Initialize uWebsockets server and attach tRPC router
 
 ```typescript
 const app = App();
@@ -81,6 +82,13 @@ type UWebSocketsCreateContextOptions = {
     method: 'POST' | 'GET';
     query: URLSearchParams;
     path: string;
+    getCookies: (opts?: CookieParseOptions) => Record<string, string>;
+  };
+  /*  */
+  res: {
+    setStatus(status: number): void;
+    setHeader(key: string, value: string): void;
+    setCookie(key: string, value: string, opts?: CookieSerializeOptions): void;
   };
   /* instance of the uWebSockets server */
   uWs: TemplatedApp;
@@ -98,3 +106,8 @@ or
 ```bash
 yarn test:watch
 ```
+
+# Todo
+
+- [ ] Expose batching options (like express adapter)
+- [ ] Implement onError handling (like express adapter)

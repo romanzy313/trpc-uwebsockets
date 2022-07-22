@@ -1,5 +1,16 @@
 import { TRPCError } from '@trpc/server';
 import { HttpResponse } from 'uWebSockets.js';
+import cookie, { CookieParseOptions } from 'cookie';
+/*
+cookie: 'cookie1=abc; cookie2=d.e'
+*/
+
+export const getCookieFn =
+  (headers: Record<string, string>) => (opts?: CookieParseOptions) => {
+    if (!('cookie' in headers)) return {};
+
+    return cookie.parse(headers.cookie, opts);
+  };
 
 export function readPostBody(method: string, res: HttpResponse) {
   return new Promise<

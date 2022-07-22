@@ -1,38 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import AbortController from 'abort-controller';
 import fetch from 'node-fetch';
-import { z } from 'zod';
 import { UWebSocketsCreateContextOptions } from '../src/types';
 import uWs from 'uWebSockets.js';
-
+import z from 'zod';
 import * as trpc from '@trpc/server';
-import { TRPCError } from '@trpc/server';
+import { inferAsyncReturnType, TRPCError } from '@trpc/server';
 import { createUWebSocketsHandler } from '../src/index';
-import { createTRPCClient } from '@trpc/client';
+import { createTRPCClient, HTTPHeaders } from '@trpc/client';
 
-const testPort = 8732;
+const testPort = 8799;
 
-type Context = {
-  user: {
-    name: string;
-  } | null;
-};
-async function startServer() {
-  const createContext = (_opts: UWebSocketsCreateContextOptions): Context => {
-    const getUser = () => {
-      if (_opts.req.headers.authorization === 'meow') {
-        return {
-          name: 'KATT',
-        };
-      }
-      return null;
-    };
-
-    return {
-      user: getUser(),
-    };
-  };
-
+function makeRouter() {
   const router = trpc
     .router<Context>()
     .query('hello', {
@@ -65,8 +44,58 @@ async function startServer() {
           user: ctx.user,
         };
       },
+    })
+    .query('cookie-monster', {
+      resolve({ input, ctx }) {
+        const cookies = ctx.req.getCookies();
+
+        const combined = cookies['cookie1'] + cookies['cookie2'];
+        ctx.res.setCookie('one', 'nom');
+        ctx.res.setCookie('two', 'nom nom');
+        ctx.res.setHeader('x-spooked', 'true');
+        ctx.res.setStatus(201);
+        return {
+          combined,
+          user: ctx.user,
+        };
+      },
     });
 
+  return router;
+}
+export type Router = ReturnType<typeof makeRouter>;
+
+function makeContext() {
+  const createContext = ({
+    req,
+    res,
+    uWs,
+  }: UWebSocketsCreateContextOptions) => {
+    const getUser = () => {
+      if (req.headers.authorization === 'meow') {
+        return {
+          name: 'KATT',
+        };
+      }
+      if (req.getCookies()?.user === 'romanzy')
+        return {
+          name: 'romanzy',
+        };
+      return null;
+    };
+
+    return {
+      req,
+      res,
+      uWs,
+      user: getUser(),
+    };
+  };
+
+  return createContext;
+}
+export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
+async function startServer() {
   const app = uWs.App();
 
   // Handle CORS
@@ -76,33 +105,32 @@ async function startServer() {
     res.end();
   });
 
+  app.get('/', (res) => {
+    res.writeStatus('200 OK');
+
+    res.end();
+  });
+
   // need to register everything on the app object,
   // as uWebSockets does not have middleware
   createUWebSocketsHandler(app, '/trpc', {
-    router,
-    createContext,
+    router: makeRouter(),
+    createContext: makeContext(),
   });
 
-  const { server, socket } = await new Promise<{
-    server: uWs.TemplatedApp;
+  app.put('/trpc/put', (res) => {
+    res.writeStatus('204');
+    res.end();
+  });
+
+  const { socket } = await new Promise<{
     socket: uWs.us_listen_socket;
   }>((resolve) => {
     app.listen('0.0.0.0', testPort, (socket) => {
       resolve({
-        server: app,
         socket,
       });
     });
-  });
-
-  const client = createTRPCClient<typeof router>({
-    url: `http://localhost:${testPort}/trpc`,
-
-    AbortController: AbortController as any,
-    fetch: fetch as any,
-    headers: {
-      authorization: 'meow',
-    },
   });
 
   return {
@@ -110,17 +138,25 @@ async function startServer() {
       new Promise<void>((resolve, reject) => {
         try {
           uWs.us_listen_socket_close(socket);
+          resolve();
         } catch (error) {
           reject();
         }
-        resolve();
       }),
-    router,
-    client,
   };
 }
 
-let t: trpc.inferAsyncReturnType<typeof startServer>;
+function makeClient(headers) {
+  return createTRPCClient<Router>({
+    url: `http://localhost:${testPort}/trpc`,
+
+    AbortController: AbortController as any,
+    fetch: fetch as any,
+    headers,
+  });
+}
+
+let t!: trpc.inferAsyncReturnType<typeof startServer>;
 beforeEach(async () => {
   t = await startServer();
 });
@@ -129,8 +165,11 @@ afterEach(async () => {
 });
 
 test('simple query', async () => {
+  // t.client.runtime.headers = ()
+  const client = makeClient({});
+
   expect(
-    await t.client.query('hello', {
+    await client.query('hello', {
       who: 'test',
     })
   ).toMatchInlineSnapshot(`
@@ -139,25 +178,16 @@ test('simple query', async () => {
     }
   `);
 
-  // t.client.runtime.headers()
-
-  expect(await t.client.query('hello')).toMatchInlineSnapshot(`
-    Object {
-      "text": "hello KATT",
-    }
-  `);
+  expect(client.query('error', null)).rejects.toThrowError('error as expected');
 });
 
-// Error status codes are correct
-test('error handling', async () => {
-  expect(t.client.query('error', null)).rejects.toThrowError(
-    'error as expected'
-  );
-});
+test('mutation with header', async () => {
+  const client = makeClient({
+    authorization: 'meow',
+  });
 
-test('simple mutation', async () => {
   expect(
-    await t.client.mutation('test', {
+    await client.mutation('test', {
       value: 'lala',
     })
   ).toMatchInlineSnapshot(`
@@ -168,4 +198,45 @@ test('simple mutation', async () => {
       },
     }
   `);
+});
+
+// Error status codes are correct
+test('reads cookies', async () => {
+  const client = makeClient({
+    cookie: 'cookie1=abc; cookie2=d.e; user=romanzy',
+  });
+
+  expect(await client.query('cookie-monster')).toMatchInlineSnapshot(`
+    Object {
+      "combined": "abcd.e",
+      "user": Object {
+        "name": "romanzy",
+      },
+    }
+  `);
+});
+
+test('setting cookies and headers', async () => {
+  const monsterRes = await fetch(
+    `http://localhost:${testPort}/trpc/cookie-monster`
+  );
+  expect(monsterRes.status).toEqual(201);
+  expect(monsterRes.headers.get('set-cookie')).toEqual(
+    'one=nom, two=nom%20nom'
+  );
+  expect(monsterRes.headers.get('x-spooked')).toEqual('true');
+
+  const indexRes = await fetch(`http://localhost:${testPort}`);
+  expect(indexRes.status).toEqual(200);
+
+  const putRes = await fetch(`http://localhost:${testPort}/trpc/put`, {
+    method: 'PUT',
+  });
+  expect(putRes.status).toEqual(204);
+
+  const badInput = '{"who": "test';
+  const badRes = await fetch(
+    `http://localhost:${testPort}/trpc/hello?input=${badInput}`
+  );
+  expect(badRes.status).toEqual(400);
 });

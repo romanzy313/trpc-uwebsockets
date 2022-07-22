@@ -18,10 +18,7 @@
     "noImplicitReturns": false,
     "noImplicitThis": true,
     "noUnusedLocals": false,
-    "noFallthroughCasesInSwitch": true,
-
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "test/*.spec.ts"]
