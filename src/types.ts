@@ -1,11 +1,16 @@
 import { AnyRouter, inferRouterContext } from '@trpc/server';
-import { TemplatedApp } from 'uWebSockets.js';
+import { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { CookieParseOptions, CookieSerializeOptions } from 'cookie';
-export type UWebSocketsRegisterEndpointOptions<TRouter extends AnyRouter> = {
+
+export type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
+  /* trpc router */
   router: TRouter;
+  /* optional create context */
   createContext?: (
     opts: UWebSocketsCreateContextOptions
   ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
+  /* optional pre-request handler. Useful for dealing with CORS */
+  onRequest?: (res: HttpResponse, req: HttpRequest) => void;
 };
 
 export type UWebSocketsRequestObject = {

@@ -78,6 +78,34 @@ app.listen('0.0.0.0', 8000, () => {
 
 # API
 
+Create uWebSockets handler options
+
+```typescript
+function createUWebSocketsHandler<TRouter extends AnyRouter>(
+  /* instance of the uWebSockets server */
+  uWsApp: TemplatedApp,
+  /* Path to trpc without trailing slash (ex: "/trpc") */
+  pathPrefix: string,
+  /* Handler options */
+  opts: UWebSocketsCreateHandlerOptions<TRouter>
+);
+```
+
+Handler options
+
+```typescript
+type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
+  /* trpc router */
+  router: TRouter;
+  /* optional create context */
+  createContext?: (
+    opts: UWebSocketsCreateContextOptions
+  ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
+  /* optional pre-request handler. Useful for dealing with CORS */
+  onRequest?: (res: HttpResponse, req: HttpRequest) => void;
+};
+```
+
 Create context options
 
 ```typescript

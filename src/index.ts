@@ -4,15 +4,10 @@ import {
   resolveHTTPResponse,
 } from '@trpc/server';
 import { HTTPRequest } from '@trpc/server/dist/declarations/src/http/internals/types';
-import { CookieParseOptions, CookieSerializeOptions } from 'cookie';
-import type {
-  HttpRequest,
-  HttpResponse,
-  RecognizedString,
-  TemplatedApp,
-} from 'uWebSockets.js';
+import { CookieSerializeOptions } from 'cookie';
+import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import {
-  UWebSocketsRegisterEndpointOptions as UWebSocketsCreateHandlerOptions,
+  UWebSocketsCreateHandlerOptions,
   UWebSocketsRequestObject,
   UWebSocketsResponseObject,
 } from './types';
@@ -21,10 +16,9 @@ import cookie from 'cookie';
 export * from './types';
 
 /**
- *
  * @param uWsApp uWebsockets server instance
- * @param pathPrefix The path to endpoint without trailing slash (ex: "/trpc")
- * @param opts router and createContext options
+ * @param pathPrefix The path to trpc without trailing slash (ex: "/trpc")
+ * @param opts handler options
  */
 export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   uWsApp: TemplatedApp,
@@ -41,6 +35,7 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
       req.setYield(true);
       return;
     }
+
     const path = req.getUrl().substring(prefixTrimLength);
     const query = new URLSearchParams(decodeURIComponent(req.getQuery()));
 
@@ -127,6 +122,8 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
         // res.end();
         // return;
       }
+
+      if (opts.onRequest) opts.onRequest(res, req);
 
       //send all cookies
       resOverride.cookies.forEach((value) => {

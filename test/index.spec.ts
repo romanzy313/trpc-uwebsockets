@@ -114,6 +114,10 @@ async function startServer() {
   // need to register everything on the app object,
   // as uWebSockets does not have middleware
   createUWebSocketsHandler(app, '/trpc', {
+    onRequest: (res, req) => {
+      // allows for prerequest handling
+      res.writeHeader('Access-Control-Allow-Origin', '*');
+    },
     router: makeRouter(),
     createContext: makeContext(),
   });
