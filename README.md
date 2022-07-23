@@ -101,8 +101,11 @@ type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
   createContext?: (
     opts: UWebSocketsCreateContextOptions
   ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
-  /* optional pre-request handler. Useful for dealing with CORS */
-  onRequest?: (res: HttpResponse, req: HttpRequest) => void;
+  /* optional pre-request handler. Useful for dealing with CORS, or sending extra headers */
+  onRequest?: (
+    req: UWebSocketsRequestObject,
+    res: UWebSocketsResponseObject
+  ) => void;
 };
 ```
 
@@ -118,7 +121,7 @@ type UWebSocketsCreateContextOptions = {
     path: string;
     getCookies: (opts?: CookieParseOptions) => Record<string, string>;
   };
-  /*  */
+  /* minimal response interface */
   res: {
     setStatus(status: number): void;
     setHeader(key: string, value: string): void;

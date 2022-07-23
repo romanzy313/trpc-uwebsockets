@@ -10,7 +10,10 @@ export type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
     opts: UWebSocketsCreateContextOptions
   ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
   /* optional pre-request handler. Useful for dealing with CORS */
-  onRequest?: (res: HttpResponse, req: HttpRequest) => void;
+  onRequest?: (
+    req: UWebSocketsRequestObject,
+    res: UWebSocketsResponseObject
+  ) => void;
 };
 
 export type UWebSocketsRequestObject = {

@@ -123,7 +123,7 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
         // return;
       }
 
-      if (opts.onRequest) opts.onRequest(res, req);
+      if (opts.onRequest) opts.onRequest(request, response);
 
       //send all cookies
       resOverride.cookies.forEach((value) => {
