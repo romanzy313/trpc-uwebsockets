@@ -25,29 +25,28 @@ export function readPostBody(method: string, res: HttpResponse) {
     }
 
     let buffer: Buffer;
+
     res.onData((ab, isLast) => {
+      //resolve right away if there is only one chunk
+      if (buffer === undefined && isLast) {
+        resolve({
+          ok: true,
+          data: Buffer.from(ab).toString(),
+        });
+        return;
+      }
+
       const chunk = Buffer.from(ab);
 
+      //else accumulate
+      if (buffer) buffer = Buffer.concat([buffer, chunk]);
+      else buffer = Buffer.concat([chunk]);
+
       if (isLast) {
-        if (buffer) {
-          // large request, with multiple chunks
-          resolve({
-            ok: true,
-            data: buffer.toString(), // do i need utf8?
-          });
-        } else {
-          // only a single chunk was recieved
-          resolve({
-            ok: true,
-            data: chunk.toString(),
-          });
-        }
-      } else {
-        if (buffer) {
-          buffer = Buffer.concat([buffer, chunk]);
-        } else {
-          buffer = Buffer.concat([chunk]);
-        }
+        resolve({
+          ok: true,
+          data: buffer.toString(),
+        });
       }
     });
 

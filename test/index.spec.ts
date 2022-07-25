@@ -27,11 +27,21 @@ function makeRouter() {
       },
     })
     .query('error', {
-      resolve() {
+      async resolve() {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'error as expected',
         });
+      },
+    })
+    .mutation('long-payload', {
+      input: z.object({
+        ping: z.any(),
+      }),
+      async resolve({ input }) {
+        return {
+          pong: input.ping,
+        };
       },
     })
     .mutation('test', {
@@ -114,11 +124,11 @@ async function startServer() {
   // need to register everything on the app object,
   // as uWebSockets does not have middleware
   createUWebSocketsHandler(app, '/trpc', {
-    onRequest: (req, res) => {
-      // allows for prerequest handling
-      const origin = req.headers.origin ?? '*';
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    },
+    // onRequest: (req, res) => {
+    //   // allows for prerequest handling
+    //   const origin = req.headers.origin ?? '*';
+    //   res.setHeader('Access-Control-Allow-Origin', origin);
+    // },
     router: makeRouter(),
     createContext: makeContext(),
   });
@@ -235,6 +245,19 @@ test('setting cookies and headers', async () => {
     'one=nom, two=nom%20nom'
   );
   expect(monsterRes.headers.get('x-spooked')).toEqual('true');
+});
+
+test('long payload', async () => {
+  const client = makeClient({});
+  const data = [...Array(50000)].map((x) => 0);
+
+  expect(
+    await client.mutation('long-payload', {
+      ping: data,
+    })
+  ).toEqual({
+    pong: data,
+  });
 });
 
 test('error handling', async () => {
