@@ -146,5 +146,6 @@ yarn test:watch
 
 # Todo
 
-- [ ] Expose batching options (like express adapter)
-- [ ] Implement onError handling (like express adapter)
+- [ ] Native subscription support
+- [ ] Expose batching options (after v10)
+- [ ] Implement onError handling (after v10)

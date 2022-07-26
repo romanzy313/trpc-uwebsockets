@@ -1,4 +1,9 @@
-import { AnyRouter, inferRouterContext } from '@trpc/server';
+import {
+  AnyRouter,
+  inferRouterContext,
+  ProcedureType,
+  TRPCError,
+} from '@trpc/server';
 import { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { CookieParseOptions, CookieSerializeOptions } from 'cookie';
 
@@ -36,3 +41,13 @@ export type UWebSocketsCreateContextOptions = {
   uWs: TemplatedApp;
   res: UWebSocketsResponseObject;
 };
+
+// waiting for V10
+// export type OnErrorFunction<TRouter extends AnyRouter, TRequest> = (opts: {
+//   error: TRPCError;
+//   type: ProcedureType | 'unknown';
+//   path: string | undefined;
+//   req: TRequest;
+//   input: unknown;
+//   ctx: undefined | inferRouterDef<TRouter>['_ctx'];
+// }) => void;
