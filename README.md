@@ -4,6 +4,14 @@
 
 # Installation
 
+To use old, stable version 9
+
+```bash
+yarn add trpc-uwebsockets@^0.9.*
+```
+
+To use version 10 beta run
+
 ```bash
 yarn add trpc-uwebsockets
 ```
@@ -14,44 +22,47 @@ Import needed packages
 
 ```typescript
 import { App } from 'uWebSockets.js';
-import * as trpc from '@trpc/server';
+import { inferAsyncReturnType, initTRPC } from '@trpc/server';
+import { CreateContextOptions } from 'trpc-uwebsockets';
 import z from 'zod';
 ```
 
-Define tRPC context and router
+Define tRPC, context, and router
 
 ```typescript
-type Context = {
-  user: {
-    name: string;
-  } | null;
-};
+const t = initTRPC.context<Context>().create();
 
-const createContext = (opts: UWebSocketsContextOptions): Context => {
+const createContext = ({ req, res }: CreateContextOptions) => {
   const getUser = () => {
-    if (opts?.req.headers.authorization) {
-      // const user = await decodeJwtToken(req.headers.authorization.split(' ')[1])
-      // return user;
+    if (req.headers.authorization === 'meow') {
+      return {
+        name: 'KATT',
+      };
     }
     return null;
   };
-
   return {
+    req,
+    res,
     user: getUser(),
   };
 };
+export type Context = inferAsyncReturnType<typeof createContext>;
 
-const router = trpc.router<Context>().query('hello', {
-  input: z
-    .object({
-      who: z.string().nullish(),
-    })
-    .nullish(),
-  resolve({ input, ctx }) {
-    return {
-      text: `hello ${input?.who ?? ctx.user?.name ?? 'world'}`,
-    };
-  },
+const router = t.router({
+  hello: t.procedure
+    .input(
+      z
+        .object({
+          who: z.string().nullish(),
+        })
+        .nullish()
+    )
+    .query(({ input, ctx }) => {
+      return {
+        text: `hello ${input?.who ?? ctx.user?.name ?? 'world'}`,
+      };
+    }),
 });
 ```
 
@@ -78,57 +89,22 @@ app.listen('0.0.0.0', 8000, () => {
 
 # API
 
-Create uWebSockets handler options
-
-```typescript
-function createUWebSocketsHandler<TRouter extends AnyRouter>(
-  /* instance of the uWebSockets server */
-  uWsApp: TemplatedApp,
-  /* Path to trpc without trailing slash (ex: "/trpc") */
-  pathPrefix: string,
-  /* Handler options */
-  opts: UWebSocketsCreateHandlerOptions<TRouter>
-);
-```
-
-Handler options
-
-```typescript
-type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
-  /* trpc router */
-  router: TRouter;
-  /* optional create context */
-  createContext?: (
-    opts: UWebSocketsCreateContextOptions
-  ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
-  /* optional pre-request handler. Useful for dealing with CORS, or sending extra headers */
-  onRequest?: (
-    req: UWebSocketsRequestObject,
-    res: UWebSocketsResponseObject
-  ) => void;
-};
-```
-
 Create context options
 
 ```typescript
-type UWebSocketsCreateContextOptions = {
+type CreateContextOptions = {
   /* read-only request information */
   req: {
     headers: Record<string, string>;
     method: 'POST' | 'GET';
-    query: URLSearchParams;
+    query: string;
     path: string;
-    getCookies: (opts?: CookieParseOptions) => Record<string, string>;
   };
-  /* minimal response interface */
+  /* minimal response interface, useful for setting cookies */
   res: {
     setStatus(status: number): void;
-    setHeader(key: string, value: string): void;
-    setCookie(key: string, value: string, opts?: CookieSerializeOptions): void;
+    setHeader(name: string, value: string): void;
   };
-  /* instance of the uWebSockets server */
-  uWs: TemplatedApp;
 };
 ```
 
@@ -146,6 +122,6 @@ yarn test:watch
 
 # Todo
 
-- [ ] Native subscription support
-- [ ] Expose batching options (after v10)
-- [ ] Implement onError handling (after v10)
+- [ ] Various improvements (res.tryEnd + reading multiple headers /w same key)
+- [ ] Improve these (remove rollup and many dependencies)
+- [ ] Subscription support with websockets

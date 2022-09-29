@@ -1,18 +1,17 @@
-import { TRPCError } from '@trpc/server';
 import { HttpResponse } from 'uWebSockets.js';
-import cookie, { CookieParseOptions } from 'cookie';
-/*
-cookie: 'cookie1=abc; cookie2=d.e'
-*/
 
-export const getCookieFn =
-  (headers: Record<string, string>) => (opts?: CookieParseOptions) => {
-    if (!('cookie' in headers)) return {};
+import {
+  WrappedHTTPRequest,
+  // uHTTPRequestHandlerOptions,
+  WrappedHTTPResponse,
+} from './types';
+import { AnyRouter, TRPCError } from '@trpc/server';
 
-    return cookie.parse(headers.cookie, opts);
-  };
-
-export function readPostBody(method: string, res: HttpResponse) {
+export function getPostBody<
+  TRouter extends AnyRouter,
+  TRequest extends WrappedHTTPRequest,
+  TResponse extends WrappedHTTPResponse
+>(method, res: HttpResponse, maxBodySize?: number) {
   return new Promise<
     { ok: true; data: unknown } | { ok: false; error: TRPCError }
   >((resolve) => {
@@ -38,8 +37,15 @@ export function readPostBody(method: string, res: HttpResponse) {
 
       const chunk = Buffer.from(ab);
 
-      //else accumulate
-      if (buffer) buffer = Buffer.concat([buffer, chunk]);
+      if (maxBodySize && buffer.length >= maxBodySize) {
+        resolve({
+          ok: false,
+          error: new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }),
+        });
+      }
+      if (buffer)
+        //else accumulate
+        buffer = Buffer.concat([buffer, chunk]);
       else buffer = Buffer.concat([chunk]);
 
       if (isLast) {
@@ -57,4 +63,10 @@ export function readPostBody(method: string, res: HttpResponse) {
       });
     });
   });
+}
+
+// FIXME buffer the output with tryEnd instead
+// https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
+export function sendResponse(res: HttpResponse, payload?: string) {
+  res.end(payload);
 }

@@ -1,53 +1,40 @@
-import {
-  AnyRouter,
-  inferRouterContext,
-  ProcedureType,
-  TRPCError,
-} from '@trpc/server';
 import { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
-import { CookieParseOptions, CookieSerializeOptions } from 'cookie';
 
-export type UWebSocketsCreateHandlerOptions<TRouter extends AnyRouter> = {
-  /* trpc router */
-  router: TRouter;
-  /* optional create context */
-  createContext?: (
-    opts: UWebSocketsCreateContextOptions
-  ) => Promise<inferRouterContext<TRouter>> | inferRouterContext<TRouter>;
-  /* optional pre-request handler. Useful for dealing with CORS */
-  onRequest?: (
-    req: UWebSocketsRequestObject,
-    res: UWebSocketsResponseObject
-  ) => void;
-};
+import { AnyRouter } from '@trpc/server';
+import {
+  NodeHTTPCreateContextFnOptions,
+  NodeHTTPCreateContextOption,
+} from '@trpc/server/adapters/node-http';
+import { HTTPBaseHandlerOptions } from '@trpc/server/dist/http/internals/types';
 
-export type UWebSocketsRequestObject = {
+export type WrappedHTTPRequest = {
   headers: Record<string, string>;
   method: 'POST' | 'GET';
-  query: URLSearchParams;
-  path: string;
-  getCookies: (opts?: CookieParseOptions) => Record<string, string>;
+  query: string;
+  url: string;
 };
 
-// if this to be used, it needs to be proxied
-export type UWebSocketsResponseObject = {
-  setCookie(key: string, value: string, opts?: CookieSerializeOptions): void;
+export type WrappedHTTPResponse = {
   setStatus(status: number): void;
   setHeader(key: string, value: string): void;
 };
 
-export type UWebSocketsCreateContextOptions = {
-  req: UWebSocketsRequestObject;
-  uWs: TemplatedApp;
-  res: UWebSocketsResponseObject;
-};
+export type uHTTPHandlerOptions<TRouter extends AnyRouter> =
+  HTTPBaseHandlerOptions<TRouter, WrappedHTTPRequest> & {
+    maxBodySize?: number;
+  } & NodeHTTPCreateContextOption<
+      TRouter,
+      WrappedHTTPRequest,
+      WrappedHTTPResponse
+    >;
 
-// waiting for V10
-// export type OnErrorFunction<TRouter extends AnyRouter, TRequest> = (opts: {
-//   error: TRPCError;
-//   type: ProcedureType | 'unknown';
-//   path: string | undefined;
-//   req: TRequest;
-//   input: unknown;
-//   ctx: undefined | inferRouterDef<TRouter>['_ctx'];
-// }) => void;
+export type uHTTPRequestHandlerOptions<TRouter extends AnyRouter> = {
+  req: WrappedHTTPRequest;
+  uRes: HttpResponse;
+  path: string;
+} & uHTTPHandlerOptions<TRouter>;
+
+export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
+  WrappedHTTPRequest,
+  WrappedHTTPResponse
+>;

@@ -1,103 +1,77 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import AbortController from 'abort-controller';
 import fetch from 'node-fetch';
-import { UWebSocketsCreateContextOptions } from '../src/types';
+import { CreateContextOptions } from '../src/types';
 import uWs from 'uWebSockets.js';
 import z from 'zod';
-import * as trpc from '@trpc/server';
-import { inferAsyncReturnType, TRPCError } from '@trpc/server';
 import { createUWebSocketsHandler } from '../src/index';
-import { createTRPCClient, HTTPHeaders } from '@trpc/client';
+import {
+  createTRPCProxyClient,
+  httpBatchLink,
+  TRPCClientError,
+} from '@trpc/client';
+import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
 
 const testPort = 8799;
 
 function makeRouter() {
-  const router = trpc
-    .router<Context>()
-    .query('hello', {
-      input: z
-        .object({
-          who: z.string().nullish(),
-        })
-        .nullish(),
-      resolve({ input, ctx }) {
+  const t = initTRPC.context<Context>().create();
+
+  const router = t.router({
+    hello: t.procedure
+      .input(
+        z
+          .object({
+            who: z.string().nullish(),
+          })
+          .nullish()
+      )
+      .query(({ input, ctx }) => {
         return {
           text: `hello ${input?.who ?? ctx.user?.name ?? 'world'}`,
         };
-      },
-    })
-    .query('error', {
-      async resolve() {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'error as expected',
-        });
-      },
-    })
-    .mutation('long-payload', {
-      input: z.object({
-        ping: z.any(),
       }),
-      async resolve({ input }) {
-        return {
-          pong: input.ping,
-        };
-      },
-    })
-    .mutation('test', {
-      input: z.object({
-        value: z.string(),
-      }),
-      resolve({ input, ctx }) {
+    error: t.procedure.query(() => {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'error as expected',
+      });
+    }),
+    test: t.procedure
+      .input(
+        z.object({
+          value: z.string(),
+        })
+      )
+      .mutation(({ input, ctx }) => {
         return {
           originalValue: input.value,
           user: ctx.user,
         };
-      },
-    })
-    .query('cookie-monster', {
-      resolve({ input, ctx }) {
-        const cookies = ctx.req.getCookies();
-
-        const combined = cookies['cookie1'] + cookies['cookie2'];
-        ctx.res.setCookie('one', 'nom');
-        ctx.res.setCookie('two', 'nom nom');
-        ctx.res.setHeader('x-spooked', 'true');
-        ctx.res.setStatus(201);
-        return {
-          combined,
-          user: ctx.user,
-        };
-      },
-    });
-
+      }),
+    manualRes: t.procedure.query(({ ctx }) => {
+      ctx.res.setStatus(400);
+      ctx.res.setHeader('manual', 'header');
+      return 'status 400';
+    }),
+  });
   return router;
 }
 export type Router = ReturnType<typeof makeRouter>;
 
 function makeContext() {
-  const createContext = ({
-    req,
-    res,
-    uWs,
-  }: UWebSocketsCreateContextOptions) => {
+  const createContext = ({ req, res }: CreateContextOptions) => {
     const getUser = () => {
       if (req.headers.authorization === 'meow') {
         return {
           name: 'KATT',
         };
       }
-      if (req.getCookies()?.user === 'romanzy')
-        return {
-          name: 'romanzy',
-        };
       return null;
     };
-
     return {
       req,
       res,
-      uWs,
+      // uWs,
       user: getUser(),
     };
   };
@@ -105,46 +79,25 @@ function makeContext() {
   return createContext;
 }
 export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
+
+// export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 async function startServer() {
   const app = uWs.App();
 
-  // Handle CORS
-  app.options('/trpc/*', (res) => {
-    res.writeHeader('Access-Control-Allow-Origin', '*');
-    res.writeStatus('200 OK');
-    res.end();
-  });
-
-  app.get('/', (res) => {
-    res.writeStatus('200 OK');
-
-    res.end();
-  });
-
-  // need to register everything on the app object,
-  // as uWebSockets does not have middleware
   createUWebSocketsHandler(app, '/trpc', {
-    // onRequest: (req, res) => {
-    //   // allows for prerequest handling
-    //   const origin = req.headers.origin ?? '*';
-    //   res.setHeader('Access-Control-Allow-Origin', origin);
-    // },
+    responseMeta({ ctx, paths, type, errors }) {
+      return {
+        headers: {
+          hello: 'world',
+        },
+      };
+    },
     router: makeRouter(),
     createContext: makeContext(),
   });
 
-  app.put('/trpc/put', (res) => {
-    res.writeStatus('204');
-    res.end();
-  });
-
-  app.any('/*', (res) => {
-    res.writeStatus('404 NOT FOUND');
-    res.end();
-  });
-
-  const { socket } = await new Promise<{
-    socket: uWs.us_listen_socket;
+  let { socket } = await new Promise<{
+    socket: uWs.us_listen_socket | any;
   }>((resolve) => {
     app.listen('0.0.0.0', testPort, (socket) => {
       resolve({
@@ -158,6 +111,7 @@ async function startServer() {
       new Promise<void>((resolve, reject) => {
         try {
           uWs.us_listen_socket_close(socket);
+          socket = null;
           resolve();
         } catch (error) {
           reject();
@@ -167,16 +121,28 @@ async function startServer() {
 }
 
 function makeClient(headers) {
-  return createTRPCClient<Router>({
-    url: `http://localhost:${testPort}/trpc`,
-
-    AbortController: AbortController as any,
-    fetch: fetch as any,
-    headers,
+  const client = createTRPCProxyClient<Router>({
+    links: [
+      httpBatchLink({
+        url: `http://localhost:${testPort}/trpc`,
+        fetch: fetch as any,
+        headers,
+      }),
+    ],
   });
+  return client;
+  // client.
+
+  // return createTRPCClient<Router>({
+  //   url: `http://localhost:${testPort}/trpc`,
+
+  //   AbortController: AbortController as any,
+  //   fetch: fetch as any,
+  //   headers,
+  // });
 }
 
-let t!: trpc.inferAsyncReturnType<typeof startServer>;
+let t!: Awaited<ReturnType<typeof startServer>>;
 beforeEach(async () => {
   t = await startServer();
 });
@@ -184,12 +150,13 @@ afterEach(async () => {
   await t.close();
 });
 
-test('simple query', async () => {
+test('query simple success and error handling', async () => {
   // t.client.runtime.headers = ()
   const client = makeClient({});
 
+  // client.
   expect(
-    await client.query('hello', {
+    await client.hello.query({
       who: 'test',
     })
   ).toMatchInlineSnapshot(`
@@ -198,16 +165,16 @@ test('simple query', async () => {
     }
   `);
 
-  expect(client.query('error', null)).rejects.toThrowError('error as expected');
+  await expect(client.error.query()).rejects.toThrowError('error as expected');
 });
 
-test('mutation with header', async () => {
+test('mutation and reading headers', async () => {
   const client = makeClient({
     authorization: 'meow',
   });
 
   expect(
-    await client.mutation('test', {
+    await client.test.mutate({
       value: 'lala',
     })
   ).toMatchInlineSnapshot(`
@@ -220,67 +187,38 @@ test('mutation with header', async () => {
   `);
 });
 
-// Error status codes are correct
-test('reads cookies', async () => {
-  const client = makeClient({
-    cookie: 'cookie1=abc; cookie2=d.e; user=romanzy',
-  });
-
-  expect(await client.query('cookie-monster')).toMatchInlineSnapshot(`
-    Object {
-      "combined": "abcd.e",
-      "user": Object {
-        "name": "romanzy",
-      },
-    }
-  `);
+test('manually sets status and headers', async () => {
+  const fetcher = await fetch(
+    `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
+  );
+  const body = await fetcher.json();
+  expect(fetcher.status).toEqual(400);
+  expect(body.result.data).toEqual('status 400');
+  expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
+  expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
 });
 
-test('setting cookies and headers', async () => {
-  const monsterRes = await fetch(
-    `http://localhost:${testPort}/trpc/cookie-monster`
-  );
-  expect(monsterRes.status).toEqual(201);
-  expect(monsterRes.headers.get('set-cookie')).toEqual(
-    'one=nom, two=nom%20nom'
-  );
-  expect(monsterRes.headers.get('x-spooked')).toEqual('true');
-});
+// this needs to be tested
+// test('abort works okay', async () => {
+//   const ac = new AbortController();
+//   const client = makeClient({});
 
-test('long payload', async () => {
-  const client = makeClient({});
-  const data = [...Array(50000)].map((x) => 0);
+//   setTimeout(() => {
+//     ac.abort();
+//   }, 3);
+//   const res = await client.test.mutate(
+//     {
+//       value: 'haha',
+//     },
+//     {
+//       signal: ac.signal as any,
+//     }
+//   );
 
-  expect(
-    await client.mutation('long-payload', {
-      ping: data,
-    })
-  ).toEqual({
-    pong: data,
-  });
-});
-
-test('error handling', async () => {
-  const indexRes = await fetch(`http://localhost:${testPort}`);
-  expect(indexRes.status).toEqual(200);
-
-  const putRes = await fetch(`http://localhost:${testPort}/trpc/put`, {
-    method: 'PUT',
-  });
-  expect(putRes.status).toEqual(204);
-
-  const badInput = '{"who": "test';
-  const badRes = await fetch(
-    `http://localhost:${testPort}/trpc/hello?input=${badInput}`
-  );
-  expect(badRes.status).toEqual(400);
-
-  const badPath = await fetch(
-    `http://localhost:${testPort}/trpc/nonexisting?input=${badInput}`
-  );
-  expect(badPath.status).toEqual(400);
-
-  const uncaught = await fetch(`http://localhost:${testPort}/badurl`);
-
-  expect(uncaught.status).toEqual(404);
-});
+//   expect(res).toMatchInlineSnapshot(`
+//     Object {
+//       "originalValue": "haha",
+//       "user": null,
+//     }
+// 	`);
+// });
