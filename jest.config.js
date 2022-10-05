@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
 // /* eslint-disable no-undef */
 // // Sync object
+// This is a mess :(
 // /** @type {import('@jest/types').Config.InitialOptions} */
 // const config = {
 //   // verbose: true,

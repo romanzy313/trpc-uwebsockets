@@ -10,7 +10,7 @@ import {
   WrappedHTTPResponse,
 } from './types';
 
-// export * from './types';
+export * from './types';
 
 /**
  * @param uWsApp uWebsockets server instance
