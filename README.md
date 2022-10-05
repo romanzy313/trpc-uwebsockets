@@ -123,5 +123,4 @@ yarn test:watch
 # Todo
 
 - [ ] Various improvements (res.tryEnd + reading multiple headers /w same key)
-- [ ] Improve these (remove rollup and many dependencies)
 - [ ] Subscription support with websockets
