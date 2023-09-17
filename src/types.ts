@@ -17,7 +17,7 @@ type ConnectMiddleware<
 export type WrappedHTTPRequest = {
   headers: Record<string, string>;
   method: 'POST' | 'GET';
-  query: string;
+  query: URLSearchParams;
   url: string;
 };
 
@@ -38,6 +38,8 @@ export type uHTTPHandlerOptions<
     //   TRequest,
     //   TResponse
     // >[];
+
+    enableSubscriptions?: boolean;
   };
 
 export type uHTTPRequestHandlerOptions<

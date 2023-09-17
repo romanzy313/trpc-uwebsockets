@@ -4,11 +4,11 @@ import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { uWsHTTPRequestHandler } from './requestHandler';
 
 import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
+import { extractAndWrapHttpRequest } from './utils';
+import { applyWSHandler } from './applyWsHandler';
 
 export * from './types';
-
-export type CreateHTTPHandlerOptions<TRouter extends AnyRouter> =
-  uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>;
+export * from './applyWsHandler';
 
 /**
  * @param uWsApp uWebsockets server instance
@@ -18,38 +18,29 @@ export type CreateHTTPHandlerOptions<TRouter extends AnyRouter> =
 export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   uWsApp: TemplatedApp,
   prefix: string,
-  opts: CreateHTTPHandlerOptions<TRouter>
+  opts: uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>
   // opts: uHTTPHandlerOptions<TRouter, TRequest, TResponse>
 ) {
-  const prefixTrimLength = prefix.length + 1; // remove /* from url
+  // const prefixTrimLength = prefix.length + 1; // remove /* from url
 
   const handler = (res: HttpResponse, req: HttpRequest) => {
-    const method = req.getMethod().toUpperCase() as 'GET' | 'POST';
-    const url = req.getUrl().substring(prefixTrimLength);
-    const query = req.getQuery();
-
-    const headers: Record<string, string> = {};
-    req.forEach((key, value) => {
-      // TODO handle headers with the same key, potential issue
-      headers[key] = value;
-    });
-
-    // new request object needs to be created, because socket
-    // can only be accessed synchronously, after await it cannot be accessed
-    const wrappedReq: WrappedHTTPRequest = {
-      headers,
-      method,
-      query,
-      url,
-    };
+    const wrappedReq = extractAndWrapHttpRequest(prefix, req);
 
     uWsHTTPRequestHandler({
       req: wrappedReq,
       res: res,
-      path: url,
+      path: wrappedReq.url,
       ...opts,
     });
   };
   uWsApp.get(prefix + '/*', handler);
   uWsApp.post(prefix + '/*', handler);
+
+  if (opts.enableSubscriptions) {
+    // do something
+
+    applyWSHandler(uWsApp, prefix, opts);
+
+    // uWsApp.ws(prefix + '/*', behavior)
+  }
 }

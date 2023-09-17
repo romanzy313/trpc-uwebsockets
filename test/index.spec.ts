@@ -1,4 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { vi, beforeEach, afterEach, test, expect, expectTypeOf } from 'vitest';
+// idk how to use that
+// import { waitFor } from '@testing-library/dom';
+
 import fetch from 'node-fetch';
 import { CreateContextOptions } from '../src/types';
 import uWs from 'uWebSockets.js';
@@ -6,13 +9,30 @@ import z from 'zod';
 import { createUWebSocketsHandler } from '../src/index';
 import {
   createTRPCProxyClient,
+  createWSClient,
   httpBatchLink,
+  splitLink,
+  TRPCLink,
+  // unstable_httpBatchStreamLink,
+  wsLink,
 } from '@trpc/client';
 import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
+import EventEmitter from 'events';
+
+import { observable } from '@trpc/server/observable';
+import ws from 'ws';
 
 const testPort = 8799;
 
+interface Message {
+  id: string;
+}
+// TODO test middleware?
+const ee = new EventEmitter();
 function makeRouter() {
+  const onNewMessageSubscription = vi.fn();
+  const onSubscriptionEnded = vi.fn();
+
   const t = initTRPC.context<Context>().create();
 
   const router = t.router({
@@ -55,10 +75,26 @@ function makeRouter() {
       // ctx.res.
       return 'status 400';
     }),
+    onMessage: t.procedure.input(z.string()).subscription(() => {
+      const sub = observable<Message>((emit) => {
+        const onMessage = (data: Message) => {
+          emit.next(data);
+        };
+        ee.on('server:msg', onMessage);
+        return () => {
+          onSubscriptionEnded();
+          ee.off('server:msg', onMessage);
+        };
+      });
+      ee.emit('subscription:created');
+
+      onNewMessageSubscription();
+      return sub;
+    }),
   });
   return router;
 }
-export type Router = ReturnType<typeof makeRouter>;
+export type AppRouter = ReturnType<typeof makeRouter>;
 
 function makeContext() {
   const createContext = ({ req, res }: CreateContextOptions) => {
@@ -87,7 +123,6 @@ async function startServer() {
   const app = uWs.App();
 
   createUWebSocketsHandler(app, '/trpc', {
-    
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     responseMeta({ ctx, paths, type, errors }) {
       return {
@@ -98,6 +133,7 @@ async function startServer() {
     },
     router: makeRouter(),
     createContext: makeContext(),
+    enableSubscriptions: true,
   });
 
   let { socket } = await new Promise<{
@@ -125,25 +161,39 @@ async function startServer() {
 }
 
 function makeClient(headers) {
-  const client = createTRPCProxyClient<Router>({
+  const host = `localhost:${testPort}/trpc`;
+  const wsClient = createWSClient({
+    url: `ws://${host}`,
+    WebSocket: ws as any,
+  });
+  const client = createTRPCProxyClient<AppRouter>({
     links: [
-      httpBatchLink({
-        url: `http://localhost:${testPort}/trpc`,
-        fetch: fetch as any,
-        headers,
+      linkSpy,
+      splitLink({
+        condition(op) {
+          return op.type === 'subscription';
+        },
+        true: wsLink({ client: wsClient }),
+        false: httpBatchLink({
+          url: `http://${host}`,
+          headers: headers,
+          AbortController,
+          fetch: fetch as any,
+        }),
+        // false: unstable_httpBatchStreamLink({
+        //   url: `http://${host}`,
+        //   headers: headers,
+        //   AbortController,
+        //   fetch: fetch as any,
+        // }),
       }),
     ],
   });
-  return client;
-  // client.
+  return {
+    client,
+    wsClient,
+  };
 
-  // return createTRPCClient<Router>({
-  //   url: `http://localhost:${testPort}/trpc`,
-
-  //   AbortController: AbortController as any,
-  //   fetch: fetch as any,
-  //   headers,
-  // });
 }
 
 let t!: Awaited<ReturnType<typeof startServer>>;
@@ -152,11 +202,32 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await t.close();
+  ee.removeAllListeners();
 });
+
+const orderedResults: number[] = [];
+const linkSpy: TRPCLink<AppRouter> = () => {
+  // here we just got initialized in the app - this happens once per app
+  // useful for storing cache for instance
+  return ({ next, op }) => {
+    // this is when passing the result to the next link
+    // each link needs to return an observable which propagates results
+    return observable((observer) => {
+      const unsubscribe = next(op).subscribe({
+        next(value) {
+          orderedResults.push((value.result as any).data);
+          observer.next(value);
+        },
+        error: observer.error,
+      });
+      return unsubscribe;
+    });
+  };
+};
 
 test('query simple success and error handling', async () => {
   // t.client.runtime.headers = ()
-  const client = makeClient({});
+  const { client } = makeClient({});
 
   // client.
   expect(
@@ -164,7 +235,7 @@ test('query simple success and error handling', async () => {
       who: 'test',
     })
   ).toMatchInlineSnapshot(`
-    Object {
+    {
       "text": "hello test",
     }
   `);
@@ -173,7 +244,7 @@ test('query simple success and error handling', async () => {
 });
 
 test('mutation and reading headers', async () => {
-  const client = makeClient({
+  const { client } = makeClient({
     authorization: 'meow',
   });
 
@@ -182,9 +253,9 @@ test('mutation and reading headers', async () => {
       value: 'lala',
     })
   ).toMatchInlineSnapshot(`
-    Object {
+    {
       "originalValue": "lala",
-      "user": Object {
+      "user": {
         "name": "KATT",
       },
     }
@@ -204,26 +275,141 @@ test('manually sets status and headers', async () => {
 });
 
 // this needs to be tested
-// test('abort works okay', async () => {
-//   const ac = new AbortController();
-//   const client = makeClient({});
+test('abording requests works', async () => {
+  const ac = new AbortController();
+  const { client } = makeClient({});
 
-//   setTimeout(() => {
-//     ac.abort();
-//   }, 3);
-//   const res = await client.test.mutate(
-//     {
-//       value: 'haha',
-//     },
-//     {
-//       signal: ac.signal as any,
-//     }
-//   );
+  expect.assertions(1);
 
-//   expect(res).toMatchInlineSnapshot(`
-//     Object {
-//       "originalValue": "haha",
-//       "user": null,
-//     }
-// 	`);
-// });
+  setTimeout(() => {
+    ac.abort();
+  });
+
+  try {
+    await client.test.mutate(
+      {
+        value: 'haha',
+      },
+      {
+        signal: ac.signal as any,
+      }
+    );
+  } catch (error) {
+    expect(error.name).toBe('TRPCClientError');
+  }
+});
+
+test('subscription only operation', async () => {
+  const host = `localhost:${testPort}/trpc`;
+  const wsClient = createWSClient({
+    url: `ws://${host}`,
+    WebSocket: ws as any,
+    retryDelayMs: (i) => {
+      console.log("retrying", i);
+      return 200;
+    }
+  });
+
+  const client = createTRPCProxyClient<AppRouter>({
+    links: [wsLink({ client: wsClient })],
+  });
+  expect(
+    await client.hello.query({
+      who: 'test',
+    })
+  ).toMatchInlineSnapshot(`
+    {
+      "text": "hello test",
+    }
+  `);
+  await expect(client.error.query()).rejects.toThrowError('error as expected');
+
+
+});
+
+// FIXME no idea how to make it non-flaky
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+// Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
+test(
+  'ugly subscription tests',
+  async () => {
+    ee.once('subscription:created', () => {
+      setTimeout(() => {
+        ee.emit('server:msg', {
+          id: '1',
+        });
+        ee.emit('server:msg', {
+          id: '2',
+        });
+      });
+    });
+
+    const { client } = makeClient({});
+
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
+    const sub = client.onMessage.subscribe('onMessage', {
+      onStarted: onStartedMock,
+      onData(data) {
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        onDataMock(data);
+      },
+    });
+
+    // onStartedMock.
+
+    // expect(onStartedMock).toh
+
+    await sleep(500); // FIXME how to use waitFor instead?
+    expect(onStartedMock).toHaveBeenCalledTimes(1);
+    expect(onDataMock).toHaveBeenCalledTimes(2);
+    // await waitFor(() => {
+    //   expect(onStartedMock).toHaveBeenCalledTimes(1);
+    //   expect(onDataMock).toHaveBeenCalledTimes(2);
+    // });
+
+    ee.emit('server:msg', {
+      id: '3',
+    });
+    await sleep(500);
+    expect(onDataMock).toHaveBeenCalledTimes(3);
+
+    // await waitFor(() => {
+    //   expect(onDataMock).toHaveBeenCalledTimes(3);
+    // });
+
+    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+    [
+      [
+        {
+          "id": "1",
+        },
+      ],
+      [
+        {
+          "id": "2",
+        },
+      ],
+      [
+        {
+          "id": "3",
+        },
+      ],
+    ]
+  `);
+
+    sub.unsubscribe();
+
+    await sleep(500);
+
+    expect(ee.listenerCount('server:msg')).toBe(0);
+    expect(ee.listenerCount('server:error')).toBe(0);
+  },
+  {
+    timeout: 10000,
+  }
+);
+
+

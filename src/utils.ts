@@ -1,6 +1,7 @@
-import { HttpResponse } from 'uWebSockets.js';
+import { HttpRequest, HttpResponse } from 'uWebSockets.js';
 
 import { TRPCError } from '@trpc/server';
+import { WrappedHTTPRequest } from './types';
 
 export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
   return new Promise<
@@ -64,4 +65,25 @@ export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
 // https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
 export function sendResponse(res: HttpResponse, payload?: string) {
   res.end(payload);
+}
+
+export function extractAndWrapHttpRequest(
+  prefix: string,
+  req: HttpRequest
+): WrappedHTTPRequest {
+  const method = req.getMethod().toUpperCase() as 'GET' | 'POST';
+  const url = req.getUrl().substring(prefix.length + 1);
+  const query = new URLSearchParams(req.getQuery());
+
+  const headers: Record<string, string> = {};
+  req.forEach((key, value) => {
+    headers[key] = value;
+  });
+
+  return {
+    headers,
+    method,
+    query,
+    url,
+  };
 }

@@ -4,15 +4,19 @@
 
 # Installation
 
+Latest stable version
 
-Yarn
 ```bash
-yarn add trpc-uwebsockets
+yarn add trpc-uwebsockets@latest
 ```
-Npm
+
+Or install beta version with subscription support
+
 ```bash
-npm i trpc-uwebsockets
+yarn add trpc-uwebsockets@beta
 ```
+
+##
 
 # Usage
 
@@ -64,7 +68,7 @@ const router = t.router({
 });
 ```
 
-Initialize uWebsockets server and attach tRPC router
+Initialize uWebsockets server and attach tRPC
 
 ```typescript
 const app = App();
@@ -95,18 +99,70 @@ type CreateContextOptions = {
   req: {
     headers: Record<string, string>;
     method: 'POST' | 'GET';
-    query: string;
+    query: URLSearchParams;
     path: string;
   };
   /* see https://unetworking.github.io/uWebSockets.js/generated/interfaces/HttpResponse.html */
   res: {
-    writeStatus(status: RecognizedString) : HttpResponse;
-    writeHeader(key: RecognizedString, value: RecognizedString) : HttpResponse;
-  }
+    writeStatus(status: RecognizedString): HttpResponse;
+    writeHeader(key: RecognizedString, value: RecognizedString): HttpResponse;
+  };
 };
 ```
 
-# Todo
+# Enabling subscrptions
 
-- [ ] Various improvements (res.tryEnd + reading multiple headers /w same key)
-- [ ] Subscription support with websockets
+Simple method: enable subscriptions when creating the main handler.
+
+```typescript
+createUWebSocketsHandler(app, '/trpc', {
+  router,
+  createContext,
+  enableSubscriptions: true,
+});
+```
+
+Recommended method: enable subscriptions after registering main request handler. 
+<!-- For example, cookies are not accessible inside WSHandler createContext, so in order to implement auth query string param with jwt needs to be implemented. -->
+```typescript
+const app = App();
+
+createUWebSocketsHandler(app, '/trpc', {
+  router,
+  createContext: ({ req, res }) => {},
+});
+
+applyWSHandler(app, '/trpc', {
+  router,
+  createContext: ({ req, res }) => {},
+});
+```
+
+## example of subscrption client
+
+```typescript
+import {
+  createTRPCProxyClient,
+  createWSClient,
+  httpBatchLink,
+  splitLink,
+  wsLink,
+} from '@trpc/client';
+
+const host = `localhost:8080/trpc`;
+const wsClient = createWSClient({ url: `ws://${host}` });
+const client = createTRPCProxyClient<AppRouter>({
+  links: [
+    splitLink({
+      condition(op) {
+        return op.type === 'subscription';
+      },
+      true: wsLink({ client: wsClient }),
+      false: httpBatchLink({
+        url: `http://${host}`,
+        headers: headers,
+      }),
+    }),
+  ],
+});
+```
