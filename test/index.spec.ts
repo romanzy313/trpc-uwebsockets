@@ -7,7 +7,6 @@ import { createUWebSocketsHandler } from '../src/index';
 import {
   createTRPCProxyClient,
   httpBatchLink,
-  TRPCClientError,
 } from '@trpc/client';
 import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
 
@@ -88,6 +87,8 @@ async function startServer() {
   const app = uWs.App();
 
   createUWebSocketsHandler(app, '/trpc', {
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     responseMeta({ ctx, paths, type, errors }) {
       return {
         headers: {
@@ -197,8 +198,6 @@ test('manually sets status and headers', async () => {
   const body = await fetcher.json();
   expect(fetcher.status).toEqual(400);
   expect(body.result.data).toEqual('status 400');
-
-  console.log(Array.from(fetcher.headers.entries()));
 
   expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
   expect(fetcher.headers.get('manual')).toEqual('header'); //from the result

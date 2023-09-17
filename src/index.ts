@@ -3,25 +3,19 @@ import { AnyRouter } from '@trpc/server';
 import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { uWsHTTPRequestHandler } from './requestHandler';
 
-import {
-  uHTTPHandlerOptions,
-  WrappedHTTPRequest,
-} from './types';
+import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 
 export * from './types';
 
 export type CreateHTTPHandlerOptions<TRouter extends AnyRouter> =
-uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>;
-
+  uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>;
 
 /**
  * @param uWsApp uWebsockets server instance
  * @param prefix The path to trpc without trailing slash (ex: "/trpc")
  * @param opts handler options
  */
-export function createUWebSocketsHandler<
-  TRouter extends AnyRouter,
->(
+export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   uWsApp: TemplatedApp,
   prefix: string,
   opts: CreateHTTPHandlerOptions<TRouter>
@@ -54,7 +48,6 @@ export function createUWebSocketsHandler<
       res: res,
       path: url,
       ...opts,
-
     });
   };
   uWsApp.get(prefix + '/*', handler);

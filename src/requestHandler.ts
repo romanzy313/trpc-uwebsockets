@@ -23,7 +23,7 @@ export async function uWsHTTPRequestHandler<
     };
 
     // this may not be needed
-    const query = new URLSearchParams(opts.req.query)
+    const query = new URLSearchParams(opts.req.query);
 
     const { res, req } = opts;
     let aborted = false;
@@ -64,7 +64,6 @@ export async function uWsHTTPRequestHandler<
     }
 
     res.cork(() => {
-
       // oldschool way of writing headers
       for (const [key, value] of Object.entries(result.headers ?? {})) {
         if (typeof value === 'undefined') {

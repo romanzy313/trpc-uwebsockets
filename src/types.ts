@@ -24,7 +24,7 @@ export type WrappedHTTPRequest = {
 export type WrappedHTTPResponse = {
   // setStatus(status: number): void;
   // setHeader(key: string, value: string): void;
-} & HttpResponse
+} & HttpResponse;
 
 export type uHTTPHandlerOptions<
   TRouter extends AnyRouter,

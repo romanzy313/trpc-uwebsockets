@@ -1,19 +1,11 @@
 import { HttpResponse } from 'uWebSockets.js';
 
-import {
-  WrappedHTTPRequest,
-  // uHTTPRequestHandlerOptions,
-  WrappedHTTPResponse,
-} from './types';
-import { AnyRouter, TRPCError } from '@trpc/server';
+import { TRPCError } from '@trpc/server';
 
-export function getPostBody<
-  TRouter extends AnyRouter,
-  TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse
->(method, res: HttpResponse, maxBodySize?: number) {
+export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
   return new Promise<
-    { ok: true; data: unknown; preprocessed: boolean } | { ok: false; error: TRPCError }
+    | { ok: true; data: unknown; preprocessed: boolean }
+    | { ok: false; error: TRPCError }
   >((resolve) => {
     if (method == 'GET') {
       // no body in get request
@@ -32,7 +24,7 @@ export function getPostBody<
         resolve({
           ok: true,
           data: Buffer.from(ab).toString(),
-          preprocessed: false
+          preprocessed: false,
         });
         return;
       }
@@ -54,7 +46,7 @@ export function getPostBody<
         resolve({
           ok: true,
           data: buffer.toString(),
-          preprocessed: false
+          preprocessed: false,
         });
       }
     });
