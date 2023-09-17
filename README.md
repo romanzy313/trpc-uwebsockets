@@ -98,24 +98,12 @@ type CreateContextOptions = {
     query: string;
     path: string;
   };
-  /* minimal response interface, useful for setting cookies */
+  /* see https://unetworking.github.io/uWebSockets.js/generated/interfaces/HttpResponse.html */
   res: {
-    setStatus(status: number): void;
-    setHeader(name: string, value: string): void;
-  };
+    writeStatus(status: RecognizedString) : HttpResponse;
+    writeHeader(key: RecognizedString, value: RecognizedString) : HttpResponse;
+  }
 };
-```
-
-# Testing
-
-```bash
-yarn t
-```
-
-or
-
-```bash
-yarn test:watch
 ```
 
 # Todo
