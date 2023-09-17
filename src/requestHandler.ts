@@ -1,99 +1,83 @@
-import { AnyRouter, inferRouterDef, resolveHTTPResponse } from '@trpc/server';
-import { HTTPRequest } from '@trpc/server/dist/http/internals/types';
+import { AnyRouter, inferRouterContext } from '@trpc/server';
 import { getPostBody, sendResponse } from './utils';
-import { uHTTPRequestHandlerOptions, WrappedHTTPResponse } from './types';
+import {
+  uHTTPRequestHandlerOptions,
+  WrappedHTTPRequest,
+  WrappedHTTPResponse,
+} from './types';
+import type { HTTPRequest } from '@trpc/server/src/http/types';
+import { resolveHTTPResponse } from '@trpc/server/http';
 
-type HeaderSet = { name: string; value: string }; //in order to allow multiple of the same header (Set-Cookie) for example
+export async function uWsHTTPRequestHandler<
+  TRouter extends AnyRouter,
+  TRequest extends WrappedHTTPRequest,
+  TResponse extends WrappedHTTPResponse
+>(opts: uHTTPRequestHandlerOptions<TRouter, TRequest, TResponse>) {
+  const handleViaMiddleware = opts.middleware ?? ((_req, _res, next) => next());
 
-export async function uWsHTTPRequestHandler<TRouter extends AnyRouter>(
-  opts: uHTTPRequestHandlerOptions<TRouter>
-) {
-  const resOverride = {
-    headers: [] as HeaderSet[],
-    status: 0,
-  };
+  return handleViaMiddleware(opts.req, opts.res, async (err) => {
+    if (err) throw err;
 
-  const wrappedRes: WrappedHTTPResponse = {
-    setStatus: (status: number) => {
-      resOverride.status = status;
-    },
-    setHeader: (name: string, value: string) => {
-      resOverride.headers.push({ name, value });
-      // resOverride.headers.set(key, value);
-    },
-  };
+    const createContext = async (): Promise<inferRouterContext<TRouter>> => {
+      return await opts.createContext?.(opts as any); // TODO type this up
+    };
 
-  const createContext = async function _createContext(): Promise<
-    inferRouterDef<TRouter>['_ctx']
-  > {
-    return await opts.createContext?.({
-      req: opts.req,
-      res: wrappedRes,
-    });
-  };
-  const { path, router, uRes, req } = opts;
-  let aborted = false;
-  uRes.onAborted(() => {
-    // console.log('request was aborted');
-    aborted = true;
-  });
+    // this may not be needed
+    const query = new URLSearchParams(opts.req.query)
 
-  const bodyResult = await getPostBody(req.method, uRes, opts.maxBodySize);
-
-  const query = new URLSearchParams(opts.req.query);
-  const requestObj: HTTPRequest = {
-    method: opts.req.method,
-    headers: opts.req.headers,
-    query,
-    body: bodyResult.ok ? bodyResult.data : undefined,
-  };
-
-  const result = await resolveHTTPResponse({
-    batching: opts.batching,
-    responseMeta: opts.responseMeta,
-    path,
-    createContext,
-    router,
-    req: requestObj,
-    error: bodyResult.ok ? null : bodyResult.error,
-    onError(o) {
-      opts?.onError?.({
-        ...o,
-        req: opts.req,
-      });
-    },
-  });
-
-  if (aborted) {
-    // TODO check this behavior
-    return;
-  }
-
-  uRes.cork(() => {
-    // if ('status' in result && (!res.statusCode || res.statusCode === 200)) {
-    if (resOverride.status > 0) {
-      uRes.writeStatus(resOverride.status.toString()); // TODO convert code to actual message
-    }
-    if ('status' in result) {
-      uRes.writeStatus(result.status.toString());
-    }
-
-    //send our manual headers
-    resOverride.headers.forEach((h) => {
-      uRes.writeHeader(h.name, h.value);
+    const { res, req } = opts;
+    let aborted = false;
+    res.onAborted(() => {
+      // console.log('request was aborted');
+      aborted = true;
     });
 
-    for (const [key, value] of Object.entries(result.headers ?? {})) {
-      if (typeof value === 'undefined') {
-        continue;
-      }
-      if (Array.isArray(value))
-        value.forEach((v) => {
-          uRes.writeHeader(key, v);
+    const bodyResult = await getPostBody(req.method, res, opts.maxBodySize);
+
+    const reqObj: HTTPRequest = {
+      method: opts.req.method!,
+      headers: opts.req.headers,
+      query,
+      body: bodyResult.ok ? bodyResult.data : undefined,
+    };
+
+    const result = await resolveHTTPResponse({
+      batching: opts.batching,
+      responseMeta: opts.responseMeta,
+      path: opts.path,
+      createContext,
+      router: opts.router,
+      req: reqObj,
+      error: bodyResult.ok ? null : bodyResult.error,
+      preprocessedBody: false,
+      onError(o) {
+        opts?.onError?.({
+          ...o,
+          req: opts.req as any,
         });
-      else uRes.writeHeader(key, value);
+      },
+    });
+
+    if (aborted) {
+      // TODO check this behavior
+      return;
     }
 
-    sendResponse(uRes, result.body);
+    res.cork(() => {
+
+      // oldschool way of writing headers
+      for (const [key, value] of Object.entries(result.headers ?? {})) {
+        if (typeof value === 'undefined') {
+          continue;
+        }
+        if (Array.isArray(value))
+          value.forEach((v) => {
+            res.writeHeader(key, v);
+          });
+        else res.writeHeader(key, value);
+      }
+
+      sendResponse(res, result.body);
+    });
   });
 }

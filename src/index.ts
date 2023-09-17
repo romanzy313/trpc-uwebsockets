@@ -1,26 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AnyRouter } from '@trpc/server';
-// import { HTTPRequest } from '@trpc/server/dist/index';
 import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { uWsHTTPRequestHandler } from './requestHandler';
 
 import {
   uHTTPHandlerOptions,
   WrappedHTTPRequest,
-  WrappedHTTPResponse,
 } from './types';
 
 export * from './types';
+
+export type CreateHTTPHandlerOptions<TRouter extends AnyRouter> =
+uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>;
+
 
 /**
  * @param uWsApp uWebsockets server instance
  * @param prefix The path to trpc without trailing slash (ex: "/trpc")
  * @param opts handler options
  */
-export function createUWebSocketsHandler<TRouter extends AnyRouter>(
+export function createUWebSocketsHandler<
+  TRouter extends AnyRouter,
+>(
   uWsApp: TemplatedApp,
   prefix: string,
-  opts: uHTTPHandlerOptions<TRouter>
+  opts: CreateHTTPHandlerOptions<TRouter>
+  // opts: uHTTPHandlerOptions<TRouter, TRequest, TResponse>
 ) {
   const prefixTrimLength = prefix.length + 1; // remove /* from url
 
@@ -46,9 +51,10 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
 
     uWsHTTPRequestHandler({
       req: wrappedReq,
-      uRes: res,
+      res: res,
       path: url,
       ...opts,
+
     });
   };
   uWsApp.get(prefix + '/*', handler);

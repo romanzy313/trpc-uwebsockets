@@ -2,7 +2,7 @@
   "private": false,
   "name": "trpc-uwebsockets",
   "description": "tRPC adapter for uWebSockets.js server",
-  "version": "0.10.0-proxy-beta.15",
+  "version": "0.10.38.3",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
@@ -24,11 +24,11 @@
     "prettier:dry": "prettier --config .prettierrc 'src/**/*.ts'"
   },
   "dependencies": {
-    "@trpc/server": "^10.0.0-proxy-beta.15",
+    "@trpc/server": "^10.38.3",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.10.0"
   },
   "devDependencies": {
-    "@trpc/client": "^10.0.0-proxy-beta.15",
+    "@trpc/client": "^10.38.3",
     "@types/jest": "^28.1.6",
     "@types/node": "^18.0.6",
     "@types/node-fetch": "^2.6.2",
@@ -64,7 +64,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/romanzy-1612/trpc-uwebsockets.git"
+    "url": "https://github.com/romanzy313/trpc-uwebsockets.git"
   },
   "author": "Roman Volovoy"
 }

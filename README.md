@@ -4,16 +4,14 @@
 
 # Installation
 
-To use old, stable version 9
 
-```bash
-yarn add trpc-uwebsockets@^0.9.*
-```
-
-To use version 10 beta run
-
+Yarn
 ```bash
 yarn add trpc-uwebsockets
+```
+Npm
+```bash
+npm i trpc-uwebsockets
 ```
 
 # Usage

@@ -49,8 +49,11 @@ function makeRouter() {
         };
       }),
     manualRes: t.procedure.query(({ ctx }) => {
-      ctx.res.setStatus(400);
-      ctx.res.setHeader('manual', 'header');
+      ctx.res.writeStatus('400');
+      ctx.res.writeHeader('manual', 'header');
+      ctx.res.writeHeader('set-cookie', 'lala=true');
+      ctx.res.writeHeader('set-cookie', 'anotherone=false');
+      // ctx.res.
       return 'status 400';
     }),
   });
@@ -194,6 +197,9 @@ test('manually sets status and headers', async () => {
   const body = await fetcher.json();
   expect(fetcher.status).toEqual(400);
   expect(body.result.data).toEqual('status 400');
+
+  console.log(Array.from(fetcher.headers.entries()));
+
   expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
   expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
 });

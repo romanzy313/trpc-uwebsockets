@@ -13,13 +13,14 @@ export function getPostBody<
   TResponse extends WrappedHTTPResponse
 >(method, res: HttpResponse, maxBodySize?: number) {
   return new Promise<
-    { ok: true; data: unknown } | { ok: false; error: TRPCError }
+    { ok: true; data: unknown; preprocessed: boolean } | { ok: false; error: TRPCError }
   >((resolve) => {
     if (method == 'GET') {
       // no body in get request
       resolve({
         ok: true,
         data: undefined,
+        preprocessed: false,
       });
     }
 
@@ -31,6 +32,7 @@ export function getPostBody<
         resolve({
           ok: true,
           data: Buffer.from(ab).toString(),
+          preprocessed: false
         });
         return;
       }
@@ -52,6 +54,7 @@ export function getPostBody<
         resolve({
           ok: true,
           data: buffer.toString(),
+          preprocessed: false
         });
       }
     });
