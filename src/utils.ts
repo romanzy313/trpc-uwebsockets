@@ -53,6 +53,7 @@ export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
     });
 
     res.onAborted(() => {
+      res.aborted = true;
       resolve({
         ok: false,
         error: new TRPCError({ code: 'CLIENT_CLOSED_REQUEST' }),

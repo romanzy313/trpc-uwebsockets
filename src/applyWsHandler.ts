@@ -1,8 +1,6 @@
 import type { CompressOptions, TemplatedApp, WebSocket } from 'uWebSockets.js';
 
 import {
-  ProcedureType,
-  CombinedDataTransformer,
   AnyRouter,
   inferRouterContext,
   TRPCError,
@@ -18,6 +16,7 @@ import {
   TRPCResponseMessage,
   JSONRPC2,
   TRPCReconnectNotification,
+  parseTRPCMessage,
 } from '@trpc/server/rpc';
 
 // import { transformTRPCResponse } from '../shared/transformTRPCResponse';
@@ -25,76 +24,6 @@ import { getErrorShape, transformTRPCResponse } from '@trpc/server/shared';
 import { WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 
-/* istanbul ignore next -- @preserve */
-function assertIsObject(obj: unknown): asserts obj is Record<string, unknown> {
-  if (typeof obj !== 'object' || Array.isArray(obj) || !obj) {
-    throw new Error('Not an object');
-  }
-}
-/* istanbul ignore next -- @preserve */
-function assertIsProcedureType(obj: unknown): asserts obj is ProcedureType {
-  if (obj !== 'query' && obj !== 'subscription' && obj !== 'mutation') {
-    throw new Error('Invalid procedure type');
-  }
-}
-/* istanbul ignore next -- @preserve */
-function assertIsRequestId(
-  obj: unknown
-): asserts obj is number | string | null {
-  if (
-    obj !== null &&
-    typeof obj === 'number' &&
-    isNaN(obj) &&
-    typeof obj !== 'string'
-  ) {
-    throw new Error('Invalid request id');
-  }
-}
-/* istanbul ignore next -- @preserve */
-function assertIsString(obj: unknown): asserts obj is string {
-  if (typeof obj !== 'string') {
-    throw new Error('Invalid string');
-  }
-}
-/* istanbul ignore next -- @preserve */
-function assertIsJSONRPC2OrUndefined(
-  obj: unknown
-): asserts obj is '2.0' | undefined {
-  if (typeof obj !== 'undefined' && obj !== '2.0') {
-    throw new Error('Must be JSONRPC 2.0');
-  }
-}
-function parseMessage(
-  obj: unknown,
-  transformer: CombinedDataTransformer
-): TRPCClientOutgoingMessage {
-  assertIsObject(obj);
-  const { method, params, id, jsonrpc } = obj;
-  assertIsRequestId(id);
-  assertIsJSONRPC2OrUndefined(jsonrpc);
-  if (method === 'subscription.stop') {
-    return {
-      id,
-      jsonrpc,
-      method,
-    };
-  }
-  assertIsProcedureType(method);
-  assertIsObject(params);
-
-  const { input: rawInput, path } = params;
-  assertIsString(path);
-  const input = transformer.input.deserialize(rawInput);
-  return {
-    id,
-    jsonrpc,
-    method,
-    params: {
-      input,
-      path,
-    },
-  };
-}
 
 type UWSBuiltInOpts = {
   /** Maximum length of received message. If a client tries to send you a message larger than this, the connection is immediately closed. Defaults to 16 * 1024. */
@@ -421,7 +350,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
 
         const msgs: unknown[] = Array.isArray(msgJSON) ? msgJSON : [msgJSON];
         const promises = msgs
-          .map((raw) => parseMessage(raw, transformer))
+          .map((raw) => parseTRPCMessage(raw, transformer))
           .map((value) => handleRequest(client, value));
 
         await Promise.all(promises);

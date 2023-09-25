@@ -11,7 +11,7 @@ import { resolveHTTPResponse } from '@trpc/server/http';
 export async function uWsHTTPRequestHandler<
   TRouter extends AnyRouter,
   TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse
+  TResponse extends WrappedHTTPResponse,
 >(opts: uHTTPRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const handleViaMiddleware = opts.middleware ?? ((_req, _res, next) => next());
   let aborted = false;
@@ -23,7 +23,7 @@ export async function uWsHTTPRequestHandler<
     if (err) throw err;
 
     const createContext = async (): Promise<inferRouterContext<TRouter>> => {
-      return await opts.createContext?.(opts); // TODO type this up
+      return await opts.createContext?.(opts);
     };
 
     // this may not be needed
@@ -31,8 +31,7 @@ export async function uWsHTTPRequestHandler<
 
     const { res, req } = opts;
 
-    if (aborted)
-      return;
+    if (aborted) return;
 
     const bodyResult = await getPostBody(req.method, res, opts.maxBodySize);
 

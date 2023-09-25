@@ -10,7 +10,6 @@ import {
 // idk how to use that
 // import { waitFor } from '@testing-library/dom';
 
-import fetch from 'node-fetch';
 import { CreateContextOptions } from '../src/types';
 import uWs from 'uWebSockets.js';
 import z from 'zod';
@@ -29,8 +28,7 @@ import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
 import EventEmitter from 'events';
 
 import { observable } from '@trpc/server/observable';
-import ws from 'ws';
-const WebSocket: any = ws;
+import { WebSocket } from 'unws';
 
 const testPort = 8799;
 
@@ -239,13 +237,13 @@ function makeClientWithWs(headers: Record<string, string>) {
           url: `http://${host}`,
           headers: headers,
           AbortController,
-          fetch: fetch as any,
+          fetch: fetch,
         }),
         // false: unstable_httpBatchStreamLink({
         //   url: `http://${host}`,
         //   headers: headers,
         //   AbortController,
-        //   fetch: fetch as any,
+        //   fetch: fetch,
         // }),
       }),
     ],
