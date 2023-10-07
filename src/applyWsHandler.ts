@@ -106,11 +106,6 @@ export type WSSHandlerOptions<TRouter extends AnyRouter> = BaseHandlerOptions<
 > &
   NodeHTTPCreateContextOption<TRouter, WrappedHTTPRequest, any>;
 
-// export type CreateWSSContextFnOptions = NodeHTTPCreateContextFnOptions<
-//   IncomingMessage,
-//   ws
-// >;
-
 type Decoration = {
   clientSubscriptions: Map<number | string, Unsubscribable>;
   ctxPromise: MaybePromise<inferRouterContext<AnyRouter>> | undefined;
@@ -127,16 +122,17 @@ export function applyWSHandler<TRouter extends AnyRouter>(
 
   const { transformer } = router._def._config;
 
-  // global map of maps
+  // instead of putting data on the client, can put it here in a global map
+  // const globals = new Map<WebSocket<any>, Decoration>();
 
-  //   const globalSubs = new Map<WebSocket, Map<number | string, Unsubscribable>>();
-  //   const globals = new Map<WebSocket, Decoration>();
+  // doing above can eliminate allClients for reconnection notification
+  const allClients = new Set<WebSocket<Decoration>>();
 
   function respond(
-    ws: WebSocket<Decoration>,
+    client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
   ) {
-    ws.send(
+    client.send(
       JSON.stringify(
         transformTRPCResponse(router._def._config, untransformedJSON)
       )
@@ -144,13 +140,13 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   function stopSubscription(
-    ws: WebSocket<Decoration>,
+    client: WebSocket<Decoration>,
     subscription: Unsubscribable,
     { id, jsonrpc }: JSONRPC2.BaseEnvelope & { id: JSONRPC2.RequestId }
   ) {
     subscription.unsubscribe();
 
-    respond(ws, {
+    respond(client, {
       id,
       jsonrpc,
       result: {
@@ -160,10 +156,10 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   async function handleRequest(
-    ws: WebSocket<Decoration>,
+    client: WebSocket<Decoration>,
     msg: TRPCClientOutgoingMessage
   ) {
-    const data = ws.getUserData();
+    const data = client.getUserData();
     const clientSubscriptions = data.clientSubscriptions;
 
     const { id, jsonrpc } = msg;
@@ -177,7 +173,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     if (msg.method === 'subscription.stop') {
       const sub = clientSubscriptions.get(id);
       if (sub) {
-        stopSubscription(ws, sub, { id, jsonrpc });
+        stopSubscription(client, sub, { id, jsonrpc });
       }
       clientSubscriptions.delete(id);
       return;
@@ -204,7 +200,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         }
       } else {
         // send the value as data if the method is not a subscription
-        respond(ws, {
+        respond(client, {
           id,
           jsonrpc,
           result: {
@@ -218,7 +214,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       const observable = result;
       const sub = observable.subscribe({
         next(data) {
-          respond(ws, {
+          respond(client, {
             id,
             jsonrpc,
             result: {
@@ -237,7 +233,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
             req: data.req,
             input,
           });
-          respond(ws, {
+          respond(client, {
             id,
             jsonrpc,
             error: getErrorShape({
@@ -251,7 +247,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
           });
         },
         complete() {
-          respond(ws, {
+          respond(client, {
             id,
             jsonrpc,
             result: {
@@ -272,7 +268,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       /* istanbul ignore next -- @preserve */
       if (clientSubscriptions.has(id)) {
         // duplicate request ids for client
-        stopSubscription(ws, sub, { id, jsonrpc });
+        stopSubscription(client, sub, { id, jsonrpc });
         throw new TRPCError({
           message: `Duplicate id ${id}`,
           code: 'BAD_REQUEST',
@@ -280,7 +276,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       }
       clientSubscriptions.set(id, sub);
 
-      respond(ws, {
+      respond(client, {
         id,
         jsonrpc,
         result: {
@@ -298,7 +294,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         req: data.req,
         input,
       });
-      respond(ws, {
+      respond(client, {
         id,
         jsonrpc,
         error: getErrorShape({
@@ -313,29 +309,28 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     }
   }
 
-  // this is probably bad, but its for reconnection notification
-  const allClients = new Set<WebSocket<Decoration>>();
-
   app.ws(prefix, {
     // sendPingsAutomatically: true, // could this be enabled?
 
-    upgrade: (res, ogReq, context) => {
-      const wrappedReq = extractAndWrapHttpRequest(prefix, ogReq);
+    upgrade: (res, req, context) => {
+      const wrappedReq = extractAndWrapHttpRequest(prefix, req);
 
       const secWebSocketKey = wrappedReq.headers['sec-websocket-key'];
       const secWebSocketProtocol = wrappedReq.headers['sec-websocket-protocol'];
       const secWebSocketExtensions =
         wrappedReq.headers['sec-websocket-extensions'];
 
-      const d: Decoration = {
+      const data: Decoration = {
         clientSubscriptions: new Map<number | string, Unsubscribable>(),
         req: wrappedReq,
         ctx: undefined,
         ctxPromise: createContext?.({ req: wrappedReq, res }), // this cannot use RES!
       };
 
+      
+
       res.upgrade(
-        d,
+        data,
         /* Spell these correctly */
         secWebSocketKey,
         secWebSocketProtocol,
@@ -343,9 +338,9 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         context
       );
     },
-    async open(ws: WebSocket<Decoration>) {
+    async open(client: WebSocket<Decoration>) {
       async function createContextAsync() {
-        const data = ws.getUserData();
+        const data = client.getUserData();
         try {
           data.ctx = await data.ctxPromise;
         } catch (cause) {
@@ -358,7 +353,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
             req: data.req,
             input: undefined,
           });
-          respond(ws, {
+          respond(client, {
             id: null,
             error: getErrorShape({
               config: router._def._config,
@@ -373,28 +368,25 @@ export function applyWSHandler<TRouter extends AnyRouter>(
           // close in next tick
           // FIXME check if this is okay?
           (global.setImmediate ?? global.setTimeout)(() => {
-            ws.close();
+            client.close();
           });
         }
       }
       await createContextAsync();
-      allClients.add(ws);
+      allClients.add(client);
     },
 
-    async message(ws: WebSocket<Decoration>, rawMsg) {
+    async message(client: WebSocket<Decoration>, rawMsg) {
       try {
         const stringMsg = Buffer.from(rawMsg).toString();
 
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         const msgJSON: unknown = JSON.parse(stringMsg);
-        // TODO pre-optimization? why does it always sends empty arrays?
-        // if (Array.isArray(msgJSON) && msgJSON.length == 0)
-        //   return;
 
         const msgs: unknown[] = Array.isArray(msgJSON) ? msgJSON : [msgJSON];
         const promises = msgs
           .map((raw) => parseMessage(raw, transformer))
-          .map((value) => handleRequest(ws, value));
+          .map((value) => handleRequest(client, value));
 
         await Promise.all(promises);
       } catch (cause) {
@@ -403,7 +395,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
           cause,
         });
 
-        respond(ws, {
+        respond(client, {
           id: null,
           error: getErrorShape({
             config: router._def._config,
@@ -417,13 +409,13 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       }
     },
 
-    // @ts-expect-error Adds decoration on ws type
-    close(ws: DecoratedWebSocket) {
-      for (const sub of ws.clientSubscriptions.values()) {
+    close(client: WebSocket<Decoration>) {
+      const data = client.getUserData();
+      for (const sub of data.clientSubscriptions.values()) {
         sub.unsubscribe();
       }
-      ws.clientSubscriptions.clear();
-      allClients.delete(ws);
+      data.clientSubscriptions.clear();
+      allClients.delete(client);
     },
   });
 
@@ -437,11 +429,6 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       allClients.forEach((v) => {
         v.send(data);
       });
-      // for (const client of wss.clients) {
-      //   if (client.readyState === 1 /* ws.OPEN */) {
-      //     client.send(data);
-      //   }
-      // }
     },
   };
 }
