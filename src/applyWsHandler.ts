@@ -118,8 +118,6 @@ type Decoration = {
   req: WrappedHTTPRequest;
 };
 
-type DecoratedWebSocket = WebSocket<any> & Decoration;
-
 export function applyWSHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
   prefix: string,
@@ -134,7 +132,10 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   //   const globalSubs = new Map<WebSocket, Map<number | string, Unsubscribable>>();
   //   const globals = new Map<WebSocket, Decoration>();
 
-  function respond(ws: WebSocket<any>, untransformedJSON: TRPCResponseMessage) {
+  function respond(
+    ws: WebSocket<Decoration>,
+    untransformedJSON: TRPCResponseMessage
+  ) {
     ws.send(
       JSON.stringify(
         transformTRPCResponse(router._def._config, untransformedJSON)
@@ -143,7 +144,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   function stopSubscription(
-    ws: WebSocket<any>,
+    ws: WebSocket<Decoration>,
     subscription: Unsubscribable,
     { id, jsonrpc }: JSONRPC2.BaseEnvelope & { id: JSONRPC2.RequestId }
   ) {
@@ -159,10 +160,11 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   async function handleRequest(
-    ws: DecoratedWebSocket,
+    ws: WebSocket<Decoration>,
     msg: TRPCClientOutgoingMessage
   ) {
-    const clientSubscriptions = ws.clientSubscriptions;
+    const data = ws.getUserData();
+    const clientSubscriptions = data.clientSubscriptions;
 
     const { id, jsonrpc } = msg;
     /* istanbul ignore next -- @preserve */
@@ -183,13 +185,13 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     const { path, input } = msg.params;
     const type = msg.method;
     try {
-      await ws.ctxPromise; // asserts context has been set
+      await data.ctxPromise; // asserts context has been set
 
       const result = await callProcedure({
         procedures: router._def.procedures,
         path,
         rawInput: input,
-        ctx: ws.ctx,
+        ctx: data.ctx,
         type,
       });
 
@@ -231,8 +233,8 @@ export function applyWSHandler<TRouter extends AnyRouter>(
             error,
             path,
             type,
-            ctx: ws.ctx,
-            req: ws.req,
+            ctx: data.ctx,
+            req: data.req,
             input,
           });
           respond(ws, {
@@ -244,7 +246,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
               type,
               path,
               input,
-              ctx: ws.ctx,
+              ctx: data.ctx,
             }),
           });
         },
@@ -288,7 +290,14 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     } catch (cause) /* istanbul ignore next -- @preserve */ {
       // procedure threw an error
       const error = getTRPCErrorFromUnknown(cause);
-      opts.onError?.({ error, path, type, ctx: ws.ctx, req: ws.req, input });
+      opts.onError?.({
+        error,
+        path,
+        type,
+        ctx: data.ctx,
+        req: data.req,
+        input,
+      });
       respond(ws, {
         id,
         jsonrpc,
@@ -298,25 +307,19 @@ export function applyWSHandler<TRouter extends AnyRouter>(
           type,
           path,
           input,
-          ctx: ws.ctx,
+          ctx: data.ctx,
         }),
       });
     }
   }
 
   // this is probably bad, but its for reconnection notification
-  const allClients = new Set<DecoratedWebSocket>();
+  const allClients = new Set<WebSocket<Decoration>>();
 
   app.ws(prefix, {
     // sendPingsAutomatically: true, // could this be enabled?
 
     upgrade: (res, ogReq, context) => {
-      // console.log(
-      //   'An Http connection wants to become WebSocket, URL: ' +
-      //     ogReq.getUrl() +
-      //     '!'
-      // );
-
       const wrappedReq = extractAndWrapHttpRequest(prefix, ogReq);
 
       const secWebSocketKey = wrappedReq.headers['sec-websocket-key'];
@@ -326,8 +329,8 @@ export function applyWSHandler<TRouter extends AnyRouter>(
 
       const d: Decoration = {
         clientSubscriptions: new Map<number | string, Unsubscribable>(),
-        ctx: undefined,
         req: wrappedReq,
+        ctx: undefined,
         ctxPromise: createContext?.({ req: wrappedReq, res }), // this cannot use RES!
       };
 
@@ -340,19 +343,19 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         context
       );
     },
-    // @ts-expect-error Adds decoration on ws type
-    async open(ws: DecoratedWebSocket) {
+    async open(ws: WebSocket<Decoration>) {
       async function createContextAsync() {
+        const data = ws.getUserData();
         try {
-          ws.ctx = await ws.ctxPromise;
+          data.ctx = await data.ctxPromise;
         } catch (cause) {
           const error = getTRPCErrorFromUnknown(cause);
           opts.onError?.({
             error,
             path: undefined,
             type: 'unknown',
-            ctx: ws.ctx,
-            req: ws.req,
+            ctx: data.ctx,
+            req: data.req,
             input: undefined,
           });
           respond(ws, {
@@ -363,7 +366,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
               type: 'unknown',
               path: undefined,
               input: undefined,
-              ctx: ws.ctx,
+              ctx: data.ctx,
             }),
           });
 
@@ -378,8 +381,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       allClients.add(ws);
     },
 
-    // @ts-expect-error Adds decoration on ws type
-    async message(ws: DecoratedWebSocket, rawMsg) {
+    async message(ws: WebSocket<Decoration>, rawMsg) {
       try {
         const stringMsg = Buffer.from(rawMsg).toString();
 
