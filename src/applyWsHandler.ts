@@ -1,4 +1,4 @@
-import type { TemplatedApp, WebSocket } from 'uWebSockets.js';
+import type { CompressOptions, TemplatedApp, WebSocket } from 'uWebSockets.js';
 
 import {
   ProcedureType,
@@ -96,6 +96,25 @@ function parseMessage(
   };
 }
 
+type UWSBuiltInOpts = {
+  /** Maximum length of received message. If a client tries to send you a message larger than this, the connection is immediately closed. Defaults to 16 * 1024. */
+  maxPayloadLength?: number;
+  /** Whether or not we should automatically close the socket when a message is dropped due to backpressure. Defaults to false. */
+  closeOnBackpressureLimit?: number;
+  /** Maximum number of minutes a WebSocket may be connected before being closed by the server. 0 disables the feature. */
+  maxLifetime?: number;
+  /** Maximum amount of seconds that may pass without sending or getting a message. Connection is closed if this timeout passes. Resolution (granularity) for timeouts are typically 4 seconds, rounded to closest.
+   * Disable by using 0. Defaults to 120.
+   */
+  idleTimeout?: number;
+  /** What permessage-deflate compression to use. uWS.DISABLED, uWS.SHARED_COMPRESSOR or any of the uWS.DEDICATED_COMPRESSOR_xxxKB. Defaults to uWS.DISABLED. */
+  compression?: CompressOptions;
+  /** Maximum length of allowed backpressure per socket when publishing or sending messages. Slow receivers with too high backpressure will be skipped until they catch up or timeout. Defaults to 64 * 1024. */
+  maxBackpressure?: number;
+  /** Whether or not we should automatically send pings to uphold a stable connection given whatever idleTimeout. */
+  sendPingsAutomatically?: boolean;
+};
+
 /**
  * Web socket server handler
  */
@@ -104,7 +123,8 @@ export type WSSHandlerOptions<TRouter extends AnyRouter> = BaseHandlerOptions<
   WrappedHTTPRequest
   //   IncomingMessage
 > &
-  NodeHTTPCreateContextOption<TRouter, WrappedHTTPRequest, any>;
+  NodeHTTPCreateContextOption<TRouter, WrappedHTTPRequest, any> &
+  UWSBuiltInOpts;
 
 type Decoration = {
   clientSubscriptions: Map<number | string, Unsubscribable>;
@@ -310,7 +330,13 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   app.ws(prefix, {
-    // sendPingsAutomatically: true, // could this be enabled?
+    sendPingsAutomatically: opts.sendPingsAutomatically, // could this be enabled?
+    closeOnBackpressureLimit: opts.closeOnBackpressureLimit,
+    compression: opts.compression,
+    maxBackpressure: opts.maxBackpressure,
+    maxPayloadLength: opts.maxPayloadLength,
+    maxLifetime: opts.maxLifetime,
+    idleTimeout: opts.idleTimeout,
 
     upgrade: (res, req, context) => {
       const wrappedReq = extractAndWrapHttpRequest(prefix, req);
@@ -326,8 +352,6 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         ctx: undefined,
         ctxPromise: createContext?.({ req: wrappedReq, res }), // this cannot use RES!
       };
-
-      
 
       res.upgrade(
         data,

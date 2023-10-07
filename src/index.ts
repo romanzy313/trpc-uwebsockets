@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AnyRouter } from '@trpc/server';
-import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import { uWsHTTPRequestHandler } from './requestHandler';
-
-import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
-import { applyWSHandler } from './applyWsHandler';
+import { applyWSHandler, WSSHandlerOptions } from './applyWsHandler';
+import type { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
+import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 
 export * from './types';
 export * from './applyWsHandler';
@@ -19,10 +17,7 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   uWsApp: TemplatedApp,
   prefix: string,
   opts: uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>
-  // opts: uHTTPHandlerOptions<TRouter, TRequest, TResponse>
 ) {
-  // const prefixTrimLength = prefix.length + 1; // remove /* from url
-
   const handler = (res: HttpResponse, req: HttpRequest) => {
     const wrappedReq = extractAndWrapHttpRequest(prefix, req);
 
@@ -37,10 +32,7 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   uWsApp.post(prefix + '/*', handler);
 
   if (opts.enableSubscriptions) {
-    // do something
-
-    applyWSHandler(uWsApp, prefix, opts);
-
-    // uWsApp.ws(prefix + '/*', behavior)
+    opts.router;
+    applyWSHandler(uWsApp, prefix, opts as WSSHandlerOptions<TRouter>);
   }
 }
