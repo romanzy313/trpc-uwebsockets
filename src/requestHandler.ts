@@ -14,7 +14,11 @@ export async function uWsHTTPRequestHandler<
   TResponse extends WrappedHTTPResponse
 >(opts: uHTTPRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const handleViaMiddleware = opts.middleware ?? ((_req, _res, next) => next());
-
+  let aborted = false;
+  opts.res.onAborted(() => {
+    // console.log('request was aborted');
+    aborted = true;
+  });
   return handleViaMiddleware(opts.req, opts.res, async (err) => {
     if (err) throw err;
 
@@ -26,11 +30,9 @@ export async function uWsHTTPRequestHandler<
     const query = new URLSearchParams(opts.req.query);
 
     const { res, req } = opts;
-    let aborted = false;
-    res.onAborted(() => {
-      // console.log('request was aborted');
-      aborted = true;
-    });
+
+    if (aborted)
+      return;
 
     const bodyResult = await getPostBody(req.method, res, opts.maxBodySize);
 

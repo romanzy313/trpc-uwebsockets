@@ -1,4 +1,12 @@
-import { vi, beforeEach, afterEach, test, expect, expectTypeOf } from 'vitest';
+import {
+  vi,
+  beforeEach,
+  afterEach,
+  test,
+  expect,
+  expectTypeOf,
+  describe,
+} from 'vitest';
 // idk how to use that
 // import { waitFor } from '@testing-library/dom';
 
@@ -6,12 +14,13 @@ import fetch from 'node-fetch';
 import { CreateContextOptions } from '../src/types';
 import uWs from 'uWebSockets.js';
 import z from 'zod';
-import { createUWebSocketsHandler } from '../src/index';
+import { applyWSHandler, createUWebSocketsHandler } from '../src/index';
 import {
   createTRPCProxyClient,
   createWSClient,
   httpBatchLink,
   splitLink,
+  TRPCClientError,
   TRPCLink,
   // unstable_httpBatchStreamLink,
   wsLink,
@@ -21,6 +30,7 @@ import EventEmitter from 'events';
 
 import { observable } from '@trpc/server/observable';
 import ws from 'ws';
+const WebSocket: any = ws;
 
 const testPort = 8799;
 
@@ -104,6 +114,9 @@ function makeContext() {
           name: 'KATT',
         };
       }
+
+      if (req.query.get('fail')) throw new Error('context failed as expected');
+
       return null;
     };
     return {
@@ -121,7 +134,7 @@ export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 // export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 async function startServer() {
   const app = uWs.App();
-
+  const router = makeRouter();
   createUWebSocketsHandler(app, '/trpc', {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     responseMeta({ ctx, paths, type, errors }) {
@@ -132,9 +145,34 @@ async function startServer() {
       };
     },
 
-    router: makeRouter(),
+    router,
     createContext: makeContext(),
-    enableSubscriptions: true,
+    // enableSubscriptions: true,
+  });
+
+  applyWSHandler(app, '/trpc', {
+    router,
+    createContext: async ({ req, res }) => {
+      const userName = req.query.get('user');
+
+      const fail = req.query.get('fail');
+
+      if (fail)
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'failing as expected',
+        });
+
+      return {
+        req,
+        res,
+        user: userName
+          ? {
+              name: userName,
+            }
+          : null,
+      };
+    },
   });
 
   let { socket } = await new Promise<{
@@ -161,11 +199,33 @@ async function startServer() {
   };
 }
 
-function makeClient(headers) {
+function makeClient(headers: Record<string, string>) {
+  const host = `localhost:${testPort}/trpc`;
+
+  const client = createTRPCProxyClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: `http://${host}`,
+        headers: headers,
+        AbortController,
+        fetch: fetch as any,
+      }),
+    ],
+  });
+  return {
+    client,
+  };
+}
+
+function makeClientWithWs(headers: Record<string, string>) {
   const host = `localhost:${testPort}/trpc`;
   const wsClient = createWSClient({
     url: `ws://${host}`,
-    WebSocket: ws as any,
+    WebSocket,
+    retryDelayMs: (i) => {
+      console.log('retrying connection in ws', i);
+      return 200;
+    },
   });
   const client = createTRPCProxyClient<AppRouter>({
     links: [
@@ -193,7 +253,12 @@ function makeClient(headers) {
   return {
     client,
     closeWs: () => {
-      wsClient.close();
+      return new Promise<void>((resolve) => {
+        wsClient.getConnection()?.addEventListener('close', () => {
+          resolve();
+        });
+        wsClient.close();
+      });
     },
   };
 }
@@ -201,6 +266,7 @@ function makeClient(headers) {
 let t!: Awaited<ReturnType<typeof startServer>>;
 beforeEach(async () => {
   t = await startServer();
+  // WebSocket = ws;
 });
 afterEach(async () => {
   await t.close();
@@ -227,34 +293,37 @@ const linkSpy: TRPCLink<AppRouter> = () => {
   };
 };
 
-test('query simple success and error handling', async () => {
-  // t.client.runtime.headers = ()
-  const { client } = makeClient({});
+describe('main tests', () => {
+  test('query simple success and error handling', async () => {
+    // t.client.runtime.headers = ()
+    const { client } = makeClient({});
 
-  // client.
-  expect(
-    await client.hello.query({
-      who: 'test',
-    })
-  ).toMatchInlineSnapshot(`
+    // client.
+    expect(
+      await client.hello.query({
+        who: 'test',
+      })
+    ).toMatchInlineSnapshot(`
     {
       "text": "hello test",
     }
   `);
 
-  await expect(client.error.query()).rejects.toThrowError('error as expected');
-});
-
-test('mutation and reading headers', async () => {
-  const { client } = makeClient({
-    authorization: 'meow',
+    await expect(client.error.query()).rejects.toThrowError(
+      'error as expected'
+    );
   });
 
-  expect(
-    await client.test.mutate({
-      value: 'lala',
-    })
-  ).toMatchInlineSnapshot(`
+  test('mutation and reading headers', async () => {
+    const { client } = makeClient({
+      authorization: 'meow',
+    });
+
+    expect(
+      await client.test.mutate({
+        value: 'lala',
+      })
+    ).toMatchInlineSnapshot(`
     {
       "originalValue": "lala",
       "user": {
@@ -262,127 +331,99 @@ test('mutation and reading headers', async () => {
       },
     }
   `);
-});
-
-test('manually sets status and headers', async () => {
-  const fetcher = await fetch(
-    `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
-  );
-  const body = await fetcher.json();
-  expect(fetcher.status).toEqual(400);
-  expect(body.result.data).toEqual('status 400');
-
-  expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
-  expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
-});
-
-// this needs to be tested
-test('abording requests works', async () => {
-  const ac = new AbortController();
-  const { client } = makeClient({});
-
-  expect.assertions(1);
-
-  setTimeout(() => {
-    ac.abort();
   });
 
-  try {
-    await client.test.mutate(
-      {
-        value: 'haha',
-      },
-      {
-        signal: ac.signal as any,
-      }
+  test('manually sets status and headers', async () => {
+    const fetcher = await fetch(
+      `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
     );
-  } catch (error) {
-    expect(error.name).toBe('TRPCClientError');
-  }
-});
+    const body = await fetcher.json();
+    expect(fetcher.status).toEqual(400);
+    expect(body.result.data).toEqual('status 400');
 
-test('subscription only operation', async () => {
-  const host = `localhost:${testPort}/trpc`;
-  const wsClient = createWSClient({
-    url: `ws://${host}`,
-    WebSocket: ws as any,
-    retryDelayMs: (i) => {
-      console.log('retrying', i);
-      return 200;
-    },
+    expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
+    expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
   });
 
-  const client = createTRPCProxyClient<AppRouter>({
-    links: [wsLink({ client: wsClient })],
-  });
-  expect(
-    await client.hello.query({
-      who: 'test',
-    })
-  ).toMatchInlineSnapshot(`
-    {
-      "text": "hello test",
+  // this needs to be tested
+  test('aborting requests works', async () => {
+    const ac = new AbortController();
+    const { client } = makeClient({});
+
+    expect.assertions(1);
+
+    setTimeout(() => {
+      ac.abort();
+    });
+
+    try {
+      await client.test.mutate(
+        {
+          value: 'haha',
+        },
+        {
+          signal: ac.signal as any,
+        }
+      );
+    } catch (error) {
+      expect(error.name).toBe('TRPCClientError');
     }
-  `);
-  await expect(client.error.query()).rejects.toThrowError('error as expected');
+  });
 
-  wsClient.close();
-});
+  // FIXME no idea how to make it non-flaky
+  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-// FIXME no idea how to make it non-flaky
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-// Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
-test(
-  'ugly subscription tests',
-  async () => {
-    ee.once('subscription:created', () => {
-      setTimeout(() => {
-        ee.emit('server:msg', {
-          id: '1',
-        });
-        ee.emit('server:msg', {
-          id: '2',
+  // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
+  test(
+    'ugly subscription tests',
+    async () => {
+      ee.once('subscription:created', () => {
+        setTimeout(() => {
+          ee.emit('server:msg', {
+            id: '1',
+          });
+          ee.emit('server:msg', {
+            id: '2',
+          });
         });
       });
-    });
 
-    const { client, closeWs } = makeClient({});
+      const { client, closeWs } = makeClientWithWs({});
 
-    const onStartedMock = vi.fn();
-    const onDataMock = vi.fn();
-    const sub = client.onMessage.subscribe('onMessage', {
-      onStarted: onStartedMock,
-      onData(data) {
-        expectTypeOf(data).not.toBeAny();
-        expectTypeOf(data).toMatchTypeOf<Message>();
-        onDataMock(data);
-      },
-    });
+      const onStartedMock = vi.fn();
+      const onDataMock = vi.fn();
+      const sub = client.onMessage.subscribe('onMessage', {
+        onStarted: onStartedMock,
+        onData(data) {
+          expectTypeOf(data).not.toBeAny();
+          expectTypeOf(data).toMatchTypeOf<Message>();
+          onDataMock(data);
+        },
+      });
 
-    // onStartedMock.
+      // onStartedMock.
 
-    // expect(onStartedMock).toh
+      // expect(onStartedMock).toh
 
-    await sleep(500); // FIXME how to use waitFor instead?
-    expect(onStartedMock).toHaveBeenCalledTimes(1);
-    expect(onDataMock).toHaveBeenCalledTimes(2);
-    // await waitFor(() => {
-    //   expect(onStartedMock).toHaveBeenCalledTimes(1);
-    //   expect(onDataMock).toHaveBeenCalledTimes(2);
-    // });
+      await sleep(500); // FIXME how to use waitFor instead?
+      expect(onStartedMock).toHaveBeenCalledTimes(1);
+      expect(onDataMock).toHaveBeenCalledTimes(2);
+      // await waitFor(() => {
+      //   expect(onStartedMock).toHaveBeenCalledTimes(1);
+      //   expect(onDataMock).toHaveBeenCalledTimes(2);
+      // });
 
-    ee.emit('server:msg', {
-      id: '3',
-    });
-    await sleep(500);
-    expect(onDataMock).toHaveBeenCalledTimes(3);
+      ee.emit('server:msg', {
+        id: '3',
+      });
+      await sleep(500);
+      expect(onDataMock).toHaveBeenCalledTimes(3);
 
-    // await waitFor(() => {
-    //   expect(onDataMock).toHaveBeenCalledTimes(3);
-    // });
+      // await waitFor(() => {
+      //   expect(onDataMock).toHaveBeenCalledTimes(3);
+      // });
 
-    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+      expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
     [
       [
         {
@@ -402,16 +443,52 @@ test(
     ]
   `);
 
-    sub.unsubscribe();
+      sub.unsubscribe();
 
-    await sleep(500);
+      await sleep(500);
 
-    expect(ee.listenerCount('server:msg')).toBe(0);
-    expect(ee.listenerCount('server:error')).toBe(0);
+      expect(ee.listenerCount('server:msg')).toBe(0);
+      expect(ee.listenerCount('server:error')).toBe(0);
 
-    closeWs();
-  },
-  {
-    timeout: 10000,
-  }
-);
+      await closeWs();
+    },
+    {
+      timeout: 10000,
+    }
+  );
+
+  test(
+    'subscription failed context',
+    async () => {
+      expect.assertions(2);
+      // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
+      const host = `localhost:${testPort}/trpc?user=user1&fail=yess`; // weClient can inject values via query string
+      const wsClient = createWSClient({
+        url: `ws://${host}`,
+        WebSocket,
+        retryDelayMs: (i) => {
+          console.log('retrying connection in subscription only', i);
+          return 200;
+        },
+      });
+
+      const client = createTRPCProxyClient<AppRouter>({
+        links: [wsLink({ client: wsClient })],
+      });
+
+      client.onMessage.subscribe('lala', {
+        onError(err) {
+          // expect this error here?
+          expect(err).toBeInstanceOf(TRPCClientError);
+          expect(err.message).toBe('failing as expected');
+        },
+      });
+
+      await sleep(100);
+      wsClient.close();
+    },
+    {
+      timeout: 3000,
+    }
+  );
+});

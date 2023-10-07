@@ -149,16 +149,18 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   const allClients = new Set<WebSocket<Decoration>>();
 
 
-  
+
   function respond(
     client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
   ) {
-    client.send(
-      JSON.stringify(
-        transformTRPCResponse(router._def._config, untransformedJSON)
-      )
-    );
+
+      client.send(
+        JSON.stringify(
+          transformTRPCResponse(router._def._config, untransformedJSON)
+        )
+      );
+
   }
 
   function stopSubscription(
@@ -367,10 +369,12 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     async open(client: WebSocket<Decoration>) {
       async function createContextAsync() {
         const data = client.getUserData();
+
         try {
           data.ctx = await data.ctxPromise;
         } catch (cause) {
           const error = getTRPCErrorFromUnknown(cause);
+
           opts.onError?.({
             error,
             path: undefined,
@@ -391,11 +395,17 @@ export function applyWSHandler<TRouter extends AnyRouter>(
             }),
           });
 
-          // close in next tick
-          // FIXME check if this is okay?
-          (global.setImmediate ?? global.setTimeout)(() => {
-            client.close();
-          });
+          // large timeout is needed in order for response above to reach the client
+          // otherwise it tries to reconnect over and over again, even though the context throws
+          // this is a rouch edge of uWs
+          setTimeout(() => {
+            client.end()
+          }, 1000)
+
+          // original code
+          // (global.setImmediate ?? global.setTimeout)(() => {
+          // client.end()
+          // });
         }
       }
       await createContextAsync();
@@ -437,6 +447,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
 
     close(client: WebSocket<Decoration>) {
       const data = client.getUserData();
+
       for (const sub of data.clientSubscriptions.values()) {
         sub.unsubscribe();
       }
