@@ -23,8 +23,6 @@ export type WrappedHTTPRequest = {
 
 export type WrappedHTTPResponse = HttpResponse;
 
-
-
 export type uHTTPHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends WrappedHTTPRequest,
