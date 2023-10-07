@@ -148,6 +148,8 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   // doing above can eliminate allClients for reconnection notification
   const allClients = new Set<WebSocket<Decoration>>();
 
+
+  
   function respond(
     client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
