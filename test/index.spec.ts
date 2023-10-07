@@ -131,6 +131,7 @@ async function startServer() {
         },
       };
     },
+
     router: makeRouter(),
     createContext: makeContext(),
     enableSubscriptions: true,
@@ -191,9 +192,10 @@ function makeClient(headers) {
   });
   return {
     client,
-    wsClient,
+    closeWs: () => {
+      wsClient.close();
+    },
   };
-
 }
 
 let t!: Awaited<ReturnType<typeof startServer>>;
@@ -305,9 +307,9 @@ test('subscription only operation', async () => {
     url: `ws://${host}`,
     WebSocket: ws as any,
     retryDelayMs: (i) => {
-      console.log("retrying", i);
+      console.log('retrying', i);
       return 200;
-    }
+    },
   });
 
   const client = createTRPCProxyClient<AppRouter>({
@@ -324,7 +326,7 @@ test('subscription only operation', async () => {
   `);
   await expect(client.error.query()).rejects.toThrowError('error as expected');
 
-
+  wsClient.close();
 });
 
 // FIXME no idea how to make it non-flaky
@@ -345,7 +347,7 @@ test(
       });
     });
 
-    const { client } = makeClient({});
+    const { client, closeWs } = makeClient({});
 
     const onStartedMock = vi.fn();
     const onDataMock = vi.fn();
@@ -406,10 +408,10 @@ test(
 
     expect(ee.listenerCount('server:msg')).toBe(0);
     expect(ee.listenerCount('server:error')).toBe(0);
+
+    closeWs();
   },
   {
     timeout: 10000,
   }
 );
-
-

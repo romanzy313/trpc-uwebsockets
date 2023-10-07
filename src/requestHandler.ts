@@ -19,7 +19,7 @@ export async function uWsHTTPRequestHandler<
     if (err) throw err;
 
     const createContext = async (): Promise<inferRouterContext<TRouter>> => {
-      return await opts.createContext?.(opts as any); // TODO type this up
+      return await opts.createContext?.(opts); // TODO type this up
     };
 
     // this may not be needed
@@ -53,7 +53,7 @@ export async function uWsHTTPRequestHandler<
       onError(o) {
         opts?.onError?.({
           ...o,
-          req: opts.req as any,
+          req: opts.req,
         });
       },
     });

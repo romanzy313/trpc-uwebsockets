@@ -47,8 +47,8 @@ export type uHTTPRequestHandlerOptions<
   TRequest extends WrappedHTTPRequest,
   TResponse extends WrappedHTTPResponse
 > = {
-  req: WrappedHTTPRequest;
-  res: WrappedHTTPResponse;
+  req: TRequest;
+  res: TResponse;
   path: string;
 } & uHTTPHandlerOptions<TRouter, TRequest, TResponse>;
 
