@@ -61,12 +61,6 @@ export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
   });
 }
 
-// FIXME buffer the output with tryEnd instead
-// https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
-export function sendResponse(res: HttpResponse, payload?: string) {
-  res.end(payload);
-}
-
 export function extractAndWrapHttpRequest(
   prefix: string,
   req: HttpRequest

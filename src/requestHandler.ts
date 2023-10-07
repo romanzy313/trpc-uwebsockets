@@ -1,5 +1,5 @@
 import { AnyRouter, inferRouterContext } from '@trpc/server';
-import { getPostBody, sendResponse } from './utils';
+import { getPostBody } from './utils';
 import {
   uHTTPRequestHandlerOptions,
   WrappedHTTPRequest,
@@ -59,7 +59,6 @@ export async function uWsHTTPRequestHandler<
     });
 
     if (aborted) {
-      // TODO check this behavior
       return;
     }
 
@@ -78,7 +77,7 @@ export async function uWsHTTPRequestHandler<
         else res.writeHeader(key, value);
       }
 
-      sendResponse(res, result.body);
+      res.end(result.body);
     });
   });
 }
