@@ -118,7 +118,7 @@ type Decoration = {
   req: WrappedHTTPRequest;
 };
 
-type DecoratedWebSocket = WebSocket & Decoration;
+type DecoratedWebSocket = WebSocket<any> & Decoration;
 
 export function applyWSHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
@@ -134,7 +134,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   //   const globalSubs = new Map<WebSocket, Map<number | string, Unsubscribable>>();
   //   const globals = new Map<WebSocket, Decoration>();
 
-  function respond(ws: WebSocket, untransformedJSON: TRPCResponseMessage) {
+  function respond(ws: WebSocket<any>, untransformedJSON: TRPCResponseMessage) {
     ws.send(
       JSON.stringify(
         transformTRPCResponse(router._def._config, untransformedJSON)
@@ -143,7 +143,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   }
 
   function stopSubscription(
-    ws: WebSocket,
+    ws: WebSocket<any>,
     subscription: Unsubscribable,
     { id, jsonrpc }: JSONRPC2.BaseEnvelope & { id: JSONRPC2.RequestId }
   ) {
