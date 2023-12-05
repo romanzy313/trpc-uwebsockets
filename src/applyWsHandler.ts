@@ -148,19 +148,15 @@ export function applyWSHandler<TRouter extends AnyRouter>(
   // doing above can eliminate allClients for reconnection notification
   const allClients = new Set<WebSocket<Decoration>>();
 
-
-
   function respond(
     client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
   ) {
-
-      client.send(
-        JSON.stringify(
-          transformTRPCResponse(router._def._config, untransformedJSON)
-        )
-      );
-
+    client.send(
+      JSON.stringify(
+        transformTRPCResponse(router._def._config, untransformedJSON)
+      )
+    );
   }
 
   function stopSubscription(
@@ -399,8 +395,8 @@ export function applyWSHandler<TRouter extends AnyRouter>(
           // otherwise it tries to reconnect over and over again, even though the context throws
           // this is a rouch edge of uWs
           setTimeout(() => {
-            client.end()
-          }, 1000)
+            client.end();
+          }, 1000);
 
           // original code
           // (global.setImmediate ?? global.setTimeout)(() => {
