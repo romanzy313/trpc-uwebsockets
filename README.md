@@ -65,10 +65,8 @@ const app = App();
 
 /* handle CORS as needed */
 app.options('/*', (res) => {
-  res.cork(() => {
-    res.writeHeader('Access-Control-Allow-Origin', allowOrigin);
-    res.endWithoutBody();
-  });
+  res.writeHeader('Access-Control-Allow-Origin', allowOrigin);
+  res.endWithoutBody();
 });
 
 createUWebSocketsHandler(app, '/trpc', {
