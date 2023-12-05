@@ -134,13 +134,22 @@ export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 // export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 async function startServer() {
   const app = uWs.App();
+
+  app.options('/*', (res) => {
+    res.cork(() => {
+      res.writeHeader('Access-Control-Allow-Origin', '*');
+
+      res.endWithoutBody();
+    });
+  });
+
   const router = makeRouter();
   createUWebSocketsHandler(app, '/trpc', {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     responseMeta({ ctx, paths, type, errors }) {
       return {
         headers: {
-          hello: 'world',
+          'Access-Control-Allow-Origin': '*',
         },
       };
     },
@@ -341,7 +350,7 @@ describe('main tests', () => {
     expect(fetcher.status).toEqual(400);
     expect(body.result.data).toEqual('status 400');
 
-    expect(fetcher.headers.get('hello')).toEqual('world'); // from the meta
+    expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
     expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
   });
 
@@ -405,7 +414,7 @@ describe('main tests', () => {
 
       // expect(onStartedMock).toh
 
-      await sleep(500); // FIXME how to use waitFor instead?
+      await sleep(300); // FIXME how to use waitFor instead?
       expect(onStartedMock).toHaveBeenCalledTimes(1);
       expect(onDataMock).toHaveBeenCalledTimes(2);
       // await waitFor(() => {
@@ -491,4 +500,16 @@ describe('main tests', () => {
       timeout: 3000,
     }
   );
+
+  test('options still passthrough (cors)', async () => {
+    const res = await fetch(
+      `http://localhost:${testPort}/trpc/hello?input=${encodeURI('{}')}`,
+      {
+        method: 'OPTIONS',
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
 });

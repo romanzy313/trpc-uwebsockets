@@ -121,7 +121,6 @@ type UWSBuiltInOpts = {
 export type WSSHandlerOptions<TRouter extends AnyRouter> = BaseHandlerOptions<
   TRouter,
   WrappedHTTPRequest
-  //   IncomingMessage
 > &
   NodeHTTPCreateContextOption<TRouter, WrappedHTTPRequest, any> &
   UWSBuiltInOpts;

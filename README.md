@@ -4,19 +4,9 @@
 
 # Installation
 
-Latest stable version
-
 ```bash
-yarn add trpc-uwebsockets@latest
+npm install trpc-uwebsockets
 ```
-
-Or install beta version with subscription support
-
-```bash
-yarn add trpc-uwebsockets@beta
-```
-
-##
 
 # Usage
 
@@ -73,9 +63,25 @@ Initialize uWebsockets server and attach tRPC
 ```typescript
 const app = App();
 
+/* handle CORS as needed */
+app.options('/*', (res) => {
+  res.cork(() => {
+    res.writeHeader('Access-Control-Allow-Origin', allowOrigin);
+    res.endWithoutBody();
+  });
+});
+
 createUWebSocketsHandler(app, '/trpc', {
   router,
   createContext,
+  // CORS part 2. See https://trpc.io/docs/server/caching for more information
+  responseMeta({ ctx, paths, type, errors }) {
+    return {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
+    };
+  },
 });
 
 /* dont crash on unknown request */
@@ -122,8 +128,10 @@ createUWebSocketsHandler(app, '/trpc', {
 });
 ```
 
-Recommended method: enable subscriptions after registering main request handler. 
+Recommended method: enable subscriptions after registering main request handler.
+
 <!-- For example, cookies are not accessible inside WSHandler createContext, so in order to implement auth query string param with jwt needs to be implemented. -->
+
 ```typescript
 const app = App();
 
