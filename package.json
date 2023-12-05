@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@trpc/server": "^10.40.0",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.32.0"
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.34.0"
   },
   "devDependencies": {
     "@trpc/client": "^10.40.0",
