@@ -1,12 +1,4 @@
-import {
-  vi,
-  beforeEach,
-  afterEach,
-  test,
-  expect,
-  expectTypeOf,
-  describe,
-} from 'vitest';
+import { vi, beforeEach, afterEach, test, expect, expectTypeOf } from 'vitest';
 // idk how to use that
 // import { waitFor } from '@testing-library/dom';
 
@@ -153,6 +145,7 @@ async function startServer() {
         },
       };
     },
+    maxBodySize: 10000,
 
     router,
     createContext: makeContext(),
@@ -302,37 +295,34 @@ const linkSpy: TRPCLink<AppRouter> = () => {
   };
 };
 
-describe('main tests', () => {
-  test('query simple success and error handling', async () => {
-    // t.client.runtime.headers = ()
-    const { client } = makeClient({});
+test('query simple success and error handling', async () => {
+  // t.client.runtime.headers = ()
+  const { client } = makeClient({});
 
-    // client.
-    expect(
-      await client.hello.query({
-        who: 'test',
-      })
-    ).toMatchInlineSnapshot(`
+  // client.
+  expect(
+    await client.hello.query({
+      who: 'test',
+    })
+  ).toMatchInlineSnapshot(`
     {
       "text": "hello test",
     }
   `);
 
-    await expect(client.error.query()).rejects.toThrowError(
-      'error as expected'
-    );
+  await expect(client.error.query()).rejects.toThrowError('error as expected');
+});
+
+test('mutation and reading headers', async () => {
+  const { client } = makeClient({
+    authorization: 'meow',
   });
 
-  test('mutation and reading headers', async () => {
-    const { client } = makeClient({
-      authorization: 'meow',
-    });
-
-    expect(
-      await client.test.mutate({
-        value: 'lala',
-      })
-    ).toMatchInlineSnapshot(`
+  expect(
+    await client.test.mutate({
+      value: 'lala',
+    })
+  ).toMatchInlineSnapshot(`
     {
       "originalValue": "lala",
       "user": {
@@ -340,99 +330,99 @@ describe('main tests', () => {
       },
     }
   `);
+});
+
+test('manually sets status and headers', async () => {
+  const fetcher = await fetch(
+    `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
+  );
+  const body = await fetcher.json();
+  expect(fetcher.status).toEqual(400);
+  expect(body.result.data).toEqual('status 400');
+
+  expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
+  expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
+});
+
+// this needs to be tested
+test('aborting requests works', async () => {
+  const ac = new AbortController();
+  const { client } = makeClient({});
+
+  expect.assertions(1);
+
+  setTimeout(() => {
+    ac.abort();
   });
 
-  test('manually sets status and headers', async () => {
-    const fetcher = await fetch(
-      `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
+  try {
+    await client.test.mutate(
+      {
+        value: 'haha',
+      },
+      {
+        signal: ac.signal as any,
+      }
     );
-    const body = await fetcher.json();
-    expect(fetcher.status).toEqual(400);
-    expect(body.result.data).toEqual('status 400');
+  } catch (error) {
+    expect(error.name).toBe('TRPCClientError');
+  }
+});
 
-    expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
-    expect(fetcher.headers.get('manual')).toEqual('header'); //from the result
-  });
+// FIXME no idea how to make it non-flaky
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-  // this needs to be tested
-  test('aborting requests works', async () => {
-    const ac = new AbortController();
-    const { client } = makeClient({});
-
-    expect.assertions(1);
-
-    setTimeout(() => {
-      ac.abort();
-    });
-
-    try {
-      await client.test.mutate(
-        {
-          value: 'haha',
-        },
-        {
-          signal: ac.signal as any,
-        }
-      );
-    } catch (error) {
-      expect(error.name).toBe('TRPCClientError');
-    }
-  });
-
-  // FIXME no idea how to make it non-flaky
-  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-  // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
-  test(
-    'ugly subscription tests',
-    async () => {
-      ee.once('subscription:created', () => {
-        setTimeout(() => {
-          ee.emit('server:msg', {
-            id: '1',
-          });
-          ee.emit('server:msg', {
-            id: '2',
-          });
+// Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
+test(
+  'ugly subscription tests',
+  async () => {
+    ee.once('subscription:created', () => {
+      setTimeout(() => {
+        ee.emit('server:msg', {
+          id: '1',
+        });
+        ee.emit('server:msg', {
+          id: '2',
         });
       });
+    });
 
-      const { client, closeWs } = makeClientWithWs({});
+    const { client, closeWs } = makeClientWithWs({});
 
-      const onStartedMock = vi.fn();
-      const onDataMock = vi.fn();
-      const sub = client.onMessage.subscribe('onMessage', {
-        onStarted: onStartedMock,
-        onData(data) {
-          expectTypeOf(data).not.toBeAny();
-          expectTypeOf(data).toMatchTypeOf<Message>();
-          onDataMock(data);
-        },
-      });
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
+    const sub = client.onMessage.subscribe('onMessage', {
+      onStarted: onStartedMock,
+      onData(data) {
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        onDataMock(data);
+      },
+    });
 
-      // onStartedMock.
+    // onStartedMock.
 
-      // expect(onStartedMock).toh
+    // expect(onStartedMock).toh
 
-      await sleep(300); // FIXME how to use waitFor instead?
-      expect(onStartedMock).toHaveBeenCalledTimes(1);
-      expect(onDataMock).toHaveBeenCalledTimes(2);
-      // await waitFor(() => {
-      //   expect(onStartedMock).toHaveBeenCalledTimes(1);
-      //   expect(onDataMock).toHaveBeenCalledTimes(2);
-      // });
+    await sleep(300); // FIXME how to use waitFor instead?
+    expect(onStartedMock).toHaveBeenCalledTimes(1);
+    expect(onDataMock).toHaveBeenCalledTimes(2);
+    // await waitFor(() => {
+    //   expect(onStartedMock).toHaveBeenCalledTimes(1);
+    //   expect(onDataMock).toHaveBeenCalledTimes(2);
+    // });
 
-      ee.emit('server:msg', {
-        id: '3',
-      });
-      await sleep(500);
-      expect(onDataMock).toHaveBeenCalledTimes(3);
+    ee.emit('server:msg', {
+      id: '3',
+    });
+    await sleep(500);
+    expect(onDataMock).toHaveBeenCalledTimes(3);
 
-      // await waitFor(() => {
-      //   expect(onDataMock).toHaveBeenCalledTimes(3);
-      // });
+    // await waitFor(() => {
+    //   expect(onDataMock).toHaveBeenCalledTimes(3);
+    // });
 
-      expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
     [
       [
         {
@@ -452,64 +442,81 @@ describe('main tests', () => {
     ]
   `);
 
-      sub.unsubscribe();
+    sub.unsubscribe();
 
-      await sleep(500);
+    await sleep(500);
 
-      expect(ee.listenerCount('server:msg')).toBe(0);
-      expect(ee.listenerCount('server:error')).toBe(0);
+    expect(ee.listenerCount('server:msg')).toBe(0);
+    expect(ee.listenerCount('server:error')).toBe(0);
 
-      await closeWs();
-    },
+    await closeWs();
+  },
+  {
+    timeout: 10000,
+  }
+);
+
+test(
+  'subscription failed context',
+  async () => {
+    expect.assertions(2);
+    // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
+    const host = `localhost:${testPort}/trpc?user=user1&fail=yess`; // weClient can inject values via query string
+    const wsClient = createWSClient({
+      url: `ws://${host}`,
+      WebSocket,
+      retryDelayMs: (i) => {
+        console.log('retrying connection in subscription only', i);
+        return 200;
+      },
+    });
+
+    const client = createTRPCProxyClient<AppRouter>({
+      links: [wsLink({ client: wsClient })],
+    });
+
+    client.onMessage.subscribe('lala', {
+      onError(err) {
+        // expect this error here?
+        expect(err).toBeInstanceOf(TRPCClientError);
+        expect(err.message).toBe('failing as expected');
+      },
+    });
+
+    await sleep(100);
+    wsClient.close();
+  },
+  {
+    timeout: 3000,
+  }
+);
+
+test('options still passthrough (cors)', async () => {
+  const res = await fetch(
+    `http://localhost:${testPort}/trpc/hello?input=${encodeURI('{}')}`,
     {
-      timeout: 10000,
+      method: 'OPTIONS',
     }
   );
 
-  test(
-    'subscription failed context',
-    async () => {
-      expect.assertions(2);
-      // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
-      const host = `localhost:${testPort}/trpc?user=user1&fail=yess`; // weClient can inject values via query string
-      const wsClient = createWSClient({
-        url: `ws://${host}`,
-        WebSocket,
-        retryDelayMs: (i) => {
-          console.log('retrying connection in subscription only', i);
-          return 200;
-        },
-      });
+  expect(res.status).toBe(200);
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+});
 
-      const client = createTRPCProxyClient<AppRouter>({
-        links: [wsLink({ client: wsClient })],
-      });
+test('large request body handling', async () => {
+  const { client } = makeClient({});
+  expect.assertions(1);
 
-      client.onMessage.subscribe('lala', {
-        onError(err) {
-          // expect this error here?
-          expect(err).toBeInstanceOf(TRPCClientError);
-          expect(err.message).toBe('failing as expected');
-        },
-      });
+  try {
+    const result = await client.test.mutate({
+      value: '0'.repeat(200000),
+    });
 
-      await sleep(100);
-      wsClient.close();
-    },
-    {
-      timeout: 3000,
-    }
-  );
+    console.log('length', result.originalValue.length);
+  } catch (error) {
+    console.log('error in large body is', error);
 
-  test('options still passthrough (cors)', async () => {
-    const res = await fetch(
-      `http://localhost:${testPort}/trpc/hello?input=${encodeURI('{}')}`,
-      {
-        method: 'OPTIONS',
-      }
-    );
-
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
-  });
+    expect(error.name).toBe('TRPCClientError');
+    expect(error.data.code).toBe('PAYLOAD_TOO_LARGE');
+  }
 });
