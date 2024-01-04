@@ -505,17 +505,13 @@ test('options still passthrough (cors)', async () => {
 
 test('large request body handling', async () => {
   const { client } = makeClient({});
-  expect.assertions(1);
+  expect.assertions(2);
 
   try {
-    const result = await client.test.mutate({
+    await client.test.mutate({
       value: '0'.repeat(200000),
     });
-
-    console.log('length', result.originalValue.length);
   } catch (error) {
-    console.log('error in large body is', error);
-
     expect(error.name).toBe('TRPCClientError');
     expect(error.data.code).toBe('PAYLOAD_TOO_LARGE');
   }
