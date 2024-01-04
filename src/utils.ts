@@ -17,7 +17,7 @@ export function getPostBody(method: 'GET' | 'POST', res: HttpResponse, maxBodySi
       });
     }
 
-    let buffer: Buffer;
+    let buffer: Buffer | undefined;
 
     res.onData((ab, isLast) => {
       //resolve right away if there is only one chunk
@@ -32,7 +32,7 @@ export function getPostBody(method: 'GET' | 'POST', res: HttpResponse, maxBodySi
 
       const chunk = Buffer.from(ab);
 
-      if (maxBodySize && buffer?.length >= maxBodySize) {
+      if (maxBodySize && buffer && buffer.length >= maxBodySize) {
         resolve({
           ok: false,
           error: new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }),
