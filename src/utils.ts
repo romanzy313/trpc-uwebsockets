@@ -32,7 +32,7 @@ export function getPostBody(method: 'GET' | 'POST', res: HttpResponse, maxBodySi
 
       const chunk = Buffer.from(ab);
 
-      if (maxBodySize && buffer.length >= maxBodySize) {
+      if (maxBodySize && buffer?.length >= maxBodySize) {
         resolve({
           ok: false,
           error: new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }),
