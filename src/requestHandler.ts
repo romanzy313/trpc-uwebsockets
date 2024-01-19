@@ -1,29 +1,33 @@
-import { AnyRouter, inferRouterContext } from '@trpc/server';
+import { AnyRouter } from '@trpc/server';
 import { getPostBody } from './utils';
 import {
   uHTTPRequestHandlerOptions,
   WrappedHTTPRequest,
   WrappedHTTPResponse,
 } from './types';
-import type { HTTPRequest } from '@trpc/server/src/http/types';
-import { resolveHTTPResponse } from '@trpc/server/http';
+import {
+  resolveHTTPResponse,
+  type HTTPRequest,
+  type ResolveHTTPRequestOptionsContextFn,
+} from '@trpc/server/http';
 
 export async function uWsHTTPRequestHandler<
   TRouter extends AnyRouter,
   TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse
+  TResponse extends WrappedHTTPResponse,
 >(opts: uHTTPRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const handleViaMiddleware = opts.middleware ?? ((_req, _res, next) => next());
-  let aborted = false;
-  opts.res.onAborted(() => {
-    // console.log('request was aborted');
-    aborted = true;
-  });
   return handleViaMiddleware(opts.req, opts.res, async (err) => {
     if (err) throw err;
 
-    const createContext = async (): Promise<inferRouterContext<TRouter>> => {
-      return await opts.createContext?.(opts); // TODO type this up
+    const createContext: ResolveHTTPRequestOptionsContextFn<TRouter> = async (
+      innerOpts
+    ) => {
+      return opts.createContext?.({
+        req: opts.req,
+        res: opts.res,
+        ...innerOpts,
+      });
     };
 
     // this may not be needed
@@ -31,10 +35,11 @@ export async function uWsHTTPRequestHandler<
 
     const { res, req } = opts;
 
-    if (aborted)
-      return;
+    if (res.aborted) return;
 
     const bodyResult = await getPostBody(req.method, res, opts.maxBodySize);
+
+    if (res.aborted) return;
 
     const reqObj: HTTPRequest = {
       method: opts.req.method!,
@@ -60,9 +65,7 @@ export async function uWsHTTPRequestHandler<
       },
     });
 
-    if (aborted) {
-      return;
-    }
+    if (res.aborted) return;
 
     res.cork(() => {
       res.writeStatus(result.status.toString()); // is this okay?

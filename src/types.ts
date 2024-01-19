@@ -11,7 +11,7 @@ import { HTTPBaseHandlerOptions } from '@trpc/server/dist/http';
  */
 type ConnectMiddleware<
   TRequest extends WrappedHTTPRequest = WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse = WrappedHTTPResponse
+  TResponse extends WrappedHTTPResponse = WrappedHTTPResponse,
 > = (req: TRequest, res: TResponse, next: (err?: any) => any) => void;
 
 export type WrappedHTTPRequest = {
@@ -26,7 +26,7 @@ export type WrappedHTTPResponse = HttpResponse;
 export type uHTTPHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse
+  TResponse extends WrappedHTTPResponse,
 > = HTTPBaseHandlerOptions<TRouter, TRequest> &
   NodeHTTPCreateContextOption<TRouter, TRequest, TResponse> & {
     middleware?: ConnectMiddleware;
@@ -42,7 +42,7 @@ export type uHTTPHandlerOptions<
 export type uHTTPRequestHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse
+  TResponse extends WrappedHTTPResponse,
 > = {
   req: TRequest;
   res: TResponse;

@@ -19,6 +19,11 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   opts: uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>
 ) {
   const handler = (res: HttpResponse, req: HttpRequest) => {
+    res.onAborted(() => {
+      // console.log('request was aborted');
+      res.aborted = true;
+    });
+
     const wrappedReq = extractAndWrapHttpRequest(prefix, req);
 
     uWsHTTPRequestHandler({
@@ -28,11 +33,11 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
       ...opts,
     });
   };
+
   uWsApp.get(prefix + '/*', handler);
   uWsApp.post(prefix + '/*', handler);
 
   if (opts.enableSubscriptions) {
-    opts.router;
-    applyWSHandler(uWsApp, prefix, opts as WSSHandlerOptions<TRouter>);
+    applyWSHandler(prefix, opts as WSSHandlerOptions<TRouter>);
   }
 }

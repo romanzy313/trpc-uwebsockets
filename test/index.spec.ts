@@ -150,7 +150,8 @@ async function startServer() {
     // enableSubscriptions: true,
   });
 
-  applyWSHandler(app, '/trpc', {
+  applyWSHandler('/trpc', {
+    app,
     router,
     createContext: async ({ req, res }) => {
       const userName = req.query.get('user');
@@ -254,7 +255,7 @@ function makeClientWithWs(headers: Record<string, string>) {
     client,
     closeWs: () => {
       return new Promise<void>((resolve) => {
-        wsClient.getConnection()?.addEventListener('close', () => {
+        wsClient.connection?.ws?.addEventListener('close', () => {
           resolve();
         });
         wsClient.close();
@@ -337,7 +338,7 @@ describe('main tests', () => {
     const fetcher = await fetch(
       `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
     );
-    const body = await fetcher.json();
+    const body = await fetcher.json() as { result: { data: string }};
     expect(fetcher.status).toEqual(400);
     expect(body.result.data).toEqual('status 400');
 
