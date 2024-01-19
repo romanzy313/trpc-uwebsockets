@@ -3,7 +3,7 @@ import { HttpRequest, HttpResponse } from 'uWebSockets.js';
 import { TRPCError } from '@trpc/server';
 import { WrappedHTTPRequest } from './types';
 
-export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
+export function getPostBody(method: 'GET' | 'POST', res: HttpResponse, maxBodySize?: number) {
   return new Promise<
     | { ok: true; data: unknown; preprocessed: boolean }
     | { ok: false; error: TRPCError }
@@ -17,7 +17,7 @@ export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
       });
     }
 
-    let buffer: Buffer;
+    let buffer: Buffer | undefined;
 
     res.onData((ab, isLast) => {
       //resolve right away if there is only one chunk
@@ -32,7 +32,7 @@ export function getPostBody(method, res: HttpResponse, maxBodySize?: number) {
 
       const chunk = Buffer.from(ab);
 
-      if (maxBodySize && buffer.length >= maxBodySize) {
+      if (maxBodySize && buffer && buffer.length >= maxBodySize) {
         resolve({
           ok: false,
           error: new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }),
