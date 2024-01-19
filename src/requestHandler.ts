@@ -1,4 +1,4 @@
-import { AnyRouter } from '@trpc/server';
+
 import { getPostBody } from './utils';
 import {
   uHTTPRequestHandlerOptions,
@@ -10,6 +10,9 @@ import {
   type HTTPRequest,
   type ResolveHTTPRequestOptionsContextFn,
 } from '@trpc/server/http';
+
+// TODO deprivated
+import { AnyRouter } from '@trpc/server';
 
 export async function uWsHTTPRequestHandler<
   TRouter extends AnyRouter,

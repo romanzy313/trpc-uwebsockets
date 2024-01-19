@@ -1,12 +1,14 @@
 import type { CompressOptions, TemplatedApp, WebSocket } from 'uWebSockets.js';
 
 import {
-  AnyRouter,
   inferRouterContext,
   TRPCError,
-  callProcedure,
   getTRPCErrorFromUnknown,
   transformTRPCResponse,
+  // TODO all of these are marked as depricated
+  AnyRouter,
+  callProcedure,
+  getErrorShape,
 } from '@trpc/server';
 import type { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
 import { Unsubscribable, isObservable } from '@trpc/server/observable';
@@ -18,11 +20,12 @@ import {
   parseTRPCMessage,
 } from '@trpc/server/rpc';
 
-import { getErrorShape } from '@trpc/server/shared';
 import { WrappedHTTPRequest, type WrappedHTTPResponse } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 import type { BaseHandlerOptions } from '@trpc/server/http';
-import type { MaybePromise } from '@trpc/server/dist/@trpc-core-unstable-do-not-import-this-please';
+
+// import type { MaybePromise } from '@trpc/server/dist/@trpc-core-unstable-do-not-import-this-please';
+type MaybePromise<TType> = TType | Promise<TType>
 
 type UWSBuiltInOpts = {
   /** Maximum length of received message. If a client tries to send you a message larger than this, the connection is immediately closed. Defaults to 16 * 1024. */
