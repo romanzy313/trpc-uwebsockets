@@ -4,8 +4,16 @@
 
 # Installation
 
+Version 10
+
 ```bash
 npm install trpc-uwebsockets
+```
+
+Version 11 beta
+
+```bash
+npm install trpc-uwebsockets@beta
 ```
 
 # Usage
