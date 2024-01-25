@@ -1,5 +1,5 @@
 {
-  "private": true,
+  "private": false,
   "name": "trpc-uwebsockets",
   "description": "tRPC adapter for uWebSockets.js server",
   "version": "11.0.0-beta.0",

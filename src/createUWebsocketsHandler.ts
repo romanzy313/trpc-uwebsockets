@@ -1,11 +1,10 @@
-
 import { TemplatedApp, HttpResponse, HttpRequest } from 'uWebSockets.js';
 import { applyWSHandler, WSSHandlerOptions } from './applyWsHandler';
 import { uWsHTTPRequestHandler } from './requestHandler';
 import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 
-// TODO 
+// FIXME depricated
 import { AnyRouter } from '@trpc/server';
 /**
  * @param uWsApp uWebsockets server instance

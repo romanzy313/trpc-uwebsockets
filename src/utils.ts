@@ -3,7 +3,11 @@ import { HttpRequest, HttpResponse } from 'uWebSockets.js';
 import { TRPCError } from '@trpc/server';
 import { WrappedHTTPRequest } from './types';
 
-export function getPostBody(method: 'GET' | 'POST', res: HttpResponse, maxBodySize?: number) {
+export function getPostBody(
+  method: 'GET' | 'POST',
+  res: HttpResponse,
+  maxBodySize?: number
+) {
   return new Promise<
     | { ok: true; data: unknown; preprocessed: boolean }
     | { ok: false; error: TRPCError }

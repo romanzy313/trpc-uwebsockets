@@ -1,4 +1,3 @@
-
 import { getPostBody } from './utils';
 import {
   uHTTPRequestHandlerOptions,
@@ -11,7 +10,7 @@ import {
   type ResolveHTTPRequestOptionsContextFn,
 } from '@trpc/server/http';
 
-// TODO deprivated
+// FIXME depricated
 import { AnyRouter } from '@trpc/server';
 
 export async function uWsHTTPRequestHandler<
