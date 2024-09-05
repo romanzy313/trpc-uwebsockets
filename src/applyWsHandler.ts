@@ -151,6 +151,12 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
   ) {
+    if (!allClients.has(client)) {
+      // if the client is not in the set, it means the client is not connected
+      // and there will be an error thrown by uWebSockets.js
+      // if we try to send a message to it
+      return;
+    }
     client.send(
       JSON.stringify(
         transformTRPCResponse(router._def._config, untransformedJSON)
@@ -179,6 +185,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     msg: TRPCClientOutgoingMessage
   ) {
     const data = client.getUserData();
+
     const clientSubscriptions = data.clientSubscriptions;
 
     const { id, jsonrpc } = msg;
