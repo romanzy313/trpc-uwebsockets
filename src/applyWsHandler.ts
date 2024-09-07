@@ -100,7 +100,7 @@ type UWSBuiltInOpts = {
   /** Maximum length of received message. If a client tries to send you a message larger than this, the connection is immediately closed. Defaults to 16 * 1024. */
   maxPayloadLength?: number;
   /** Whether or not we should automatically close the socket when a message is dropped due to backpressure. Defaults to false. */
-  closeOnBackpressureLimit?: number;
+  closeOnBackpressureLimit?: boolean;
   /** Maximum number of minutes a WebSocket may be connected before being closed by the server. 0 disables the feature. */
   maxLifetime?: number;
   /** Maximum amount of seconds that may pass without sending or getting a message. Connection is closed if this timeout passes. Resolution (granularity) for timeouts are typically 4 seconds, rounded to closest.
@@ -151,6 +151,12 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     client: WebSocket<Decoration>,
     untransformedJSON: TRPCResponseMessage
   ) {
+    if (!allClients.has(client)) {
+      // if the client is not in the set, it means the client is not connected
+      // and there will be an error thrown by uWebSockets.js
+      // if we try to send a message to it
+      return;
+    }
     client.send(
       JSON.stringify(
         transformTRPCResponse(router._def._config, untransformedJSON)
@@ -179,6 +185,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
     msg: TRPCClientOutgoingMessage
   ) {
     const data = client.getUserData();
+
     const clientSubscriptions = data.clientSubscriptions;
 
     const { id, jsonrpc } = msg;
