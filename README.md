@@ -10,7 +10,7 @@ Version 10
 npm install trpc-uwebsockets
 ```
 
-Version 11 beta
+Version 11 beta (same as next branch of trpc)
 
 ```bash
 npm install trpc-uwebsockets@beta

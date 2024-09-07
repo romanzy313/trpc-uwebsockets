@@ -271,12 +271,12 @@
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.27.8.tgz#6667fac16c436b5434a387a34dedb013198f6e6e"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
 
-"@trpc/client@^10.40.0":
+"@trpc/client@^10.45.2":
   version "10.45.2"
   resolved "https://registry.yarnpkg.com/@trpc/client/-/client-10.45.2.tgz#15f9ba81303bf3417083fc6bb742e4e86b49da90"
   integrity sha512-ykALM5kYWTLn1zYuUOZ2cPWlVfrXhc18HzBDyRhoPYN0jey4iQHEFSEowfnhg1RvYnrAVjNBgHNeSAXjrDbGwg==
 
-"@trpc/server@^10.40.0":
+"@trpc/server@^10.45.2":
   version "10.45.2"
   resolved "https://registry.yarnpkg.com/@trpc/server/-/server-10.45.2.tgz#5f2778c4810f93b5dc407146334f8da70a0b51fb"
   integrity sha512-wOrSThNNE4HUnuhJG6PfDRp4L2009KDVxsd+2VYH8ro6o/7/jwYZ8Uu5j+VaW+mOmc8EHerHzGcdbGNQSAUPgg==
