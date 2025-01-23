@@ -369,6 +369,7 @@ export function applyWSHandler<TRouter extends AnyRouter>(
       );
     },
     async open(client: WebSocket<Decoration>) {
+      allClients.add(client);
       async function createContextAsync() {
         const data = client.getUserData();
 
@@ -411,7 +412,6 @@ export function applyWSHandler<TRouter extends AnyRouter>(
         }
       }
       await createContextAsync();
-      allClients.add(client);
     },
 
     async message(client: WebSocket<Decoration>, rawMsg) {
