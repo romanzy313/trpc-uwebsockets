@@ -375,6 +375,9 @@ const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
 test(
   'ugly subscription tests',
+  {
+    timeout: 10000,
+  },
   async () => {
     ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -450,14 +453,14 @@ test(
     expect(ee.listenerCount('server:error')).toBe(0);
 
     await closeWs();
-  },
-  {
-    timeout: 10000,
   }
 );
 
 test(
   'subscription failed context',
+  {
+    timeout: 3000,
+  },
   async () => {
     expect.assertions(2);
     // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
@@ -477,7 +480,6 @@ test(
 
     client.onMessage.subscribe('lala', {
       onError(err) {
-        // expect this error here?
         expect(err).toBeInstanceOf(TRPCClientError);
         expect(err.message).toBe('failing as expected');
       },
@@ -485,9 +487,6 @@ test(
 
     await sleep(100);
     wsClient.close();
-  },
-  {
-    timeout: 3000,
   }
 );
 
