@@ -1,6 +1,4 @@
 import { vi, beforeEach, afterEach, test, expect, expectTypeOf } from 'vitest';
-// idk how to use that
-// import { waitFor } from '@testing-library/dom';
 
 import fetch from 'node-fetch';
 import { CreateContextOptions } from '../src/types';
@@ -23,13 +21,14 @@ import EventEmitter from 'events';
 import { observable } from '@trpc/server/observable';
 import ws from 'ws';
 const WebSocket: any = ws;
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 const testPort = 8799;
 
 interface Message {
   id: string;
 }
-// TODO test middleware?
+
 const ee = new EventEmitter();
 function makeRouter() {
   const onNewMessageSubscription = vi.fn();
@@ -336,7 +335,7 @@ test('manually sets status and headers', async () => {
   const fetcher = await fetch(
     `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
   );
-  const body = await fetcher.json();
+  const body: any = await fetcher.json();
   expect(fetcher.status).toEqual(400);
   expect(body.result.data).toEqual('status 400');
 
@@ -369,9 +368,6 @@ test('aborting requests works', async () => {
   }
 });
 
-// FIXME no idea how to make it non-flaky
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
 test(
   'ugly subscription tests',
@@ -403,27 +399,15 @@ test(
       },
     });
 
-    // onStartedMock.
-
-    // expect(onStartedMock).toh
-
-    await sleep(300); // FIXME how to use waitFor instead?
+    await sleep(300);
     expect(onStartedMock).toHaveBeenCalledTimes(1);
     expect(onDataMock).toHaveBeenCalledTimes(2);
-    // await waitFor(() => {
-    //   expect(onStartedMock).toHaveBeenCalledTimes(1);
-    //   expect(onDataMock).toHaveBeenCalledTimes(2);
-    // });
 
     ee.emit('server:msg', {
       id: '3',
     });
     await sleep(500);
     expect(onDataMock).toHaveBeenCalledTimes(3);
-
-    // await waitFor(() => {
-    //   expect(onDataMock).toHaveBeenCalledTimes(3);
-    // });
 
     expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
     [
@@ -463,7 +447,6 @@ test(
   },
   async () => {
     expect.assertions(2);
-    // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
     const host = `localhost:${testPort}/trpc?user=user1&fail=yess`; // weClient can inject values via query string
     const wsClient = createWSClient({
       url: `ws://${host}`,
