@@ -1,6 +1,4 @@
 import { vi, beforeEach, afterEach, test, expect, expectTypeOf } from 'vitest';
-// idk how to use that
-// import { waitFor } from '@testing-library/dom';
 
 import fetch from 'node-fetch';
 import { CreateContextOptions } from '../src/types';
@@ -25,6 +23,8 @@ import ws from 'ws';
 const WebSocket: any = ws;
 
 const testPort = 8799;
+
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 interface Message {
   id: string;
@@ -337,7 +337,7 @@ test('manually sets status and headers', async () => {
   const fetcher = await fetch(
     `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
   );
-  const body = await fetcher.json() as { result: { data: string } };
+  const body = (await fetcher.json()) as { result: { data: string } };
   expect(fetcher.status).toEqual(400);
   expect(body.result.data).toEqual('status 400');
 
@@ -370,12 +370,13 @@ test('aborting requests works', async () => {
   }
 });
 
-// FIXME no idea how to make it non-flaky
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
 test(
   'ugly subscription tests',
+
+  {
+    timeout: 10000,
+  },
   async () => {
     ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -451,14 +452,14 @@ test(
     expect(ee.listenerCount('server:error')).toBe(0);
 
     await closeWs();
-  },
-  {
-    timeout: 10000,
   }
 );
 
 test(
   'subscription failed context',
+  {
+    timeout: 3000,
+  },
   async () => {
     expect.assertions(2);
     // const host = `localhost:${testPort}/trpc?user=user1`; // weClient can inject values via query string
@@ -486,9 +487,6 @@ test(
 
     await sleep(100);
     wsClient.close();
-  },
-  {
-    timeout: 3000,
   }
 );
 
