@@ -20,28 +20,28 @@ import {
 import { decorateHttpResponse } from './fetchCompat';
 import { uWsToRequest, uWsSendResponse } from './fetchCompat';
 
-export type FastifyHandlerOptions<
+export type UWsHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends HttpRequest,
   TResponse extends HttpResponse
 > = HTTPBaseHandlerOptions<TRouter, TRequest> &
   NodeHTTPCreateContextOption<TRouter, TRequest, TResponse>;
 
-type FastifyRequestHandlerOptions<
+type UWsRequestHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends HttpRequest,
   TResponse extends HttpResponse
-> = FastifyHandlerOptions<TRouter, TRequest, TResponse> & {
+> = UWsHandlerOptions<TRouter, TRequest, TResponse> & {
   req: TRequest;
   res: TResponse;
   path: string;
 };
 
-export async function fastifyRequestHandler<
+export async function uWsRequestHandler<
   TRouter extends AnyRouter,
   TRequest extends HttpRequest,
   TResponse extends HttpResponse
->(opts: FastifyRequestHandlerOptions<TRouter, TRequest, TResponse>) {
+>(opts: UWsRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const createContext: ResolveHTTPRequestOptionsContextFn<TRouter> = async (
     innerOpts
   ) => {
@@ -80,8 +80,6 @@ export async function fastifyRequestHandler<
   });
 
   await uWsSendResponse(resDecorated, res);
-
-  // await opts.res.send(res);
 }
 
 // import { getPostBody } from './utils';

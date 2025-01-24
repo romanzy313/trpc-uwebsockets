@@ -16,16 +16,16 @@ import { observable } from '@trpc/server/observable';
 import { z } from 'zod';
 
 import {
-  type FastifyTRPCPluginOptions,
-  type CreateFastifyContextOptions,
-  fastifyTRPCPlugin,
+  type UWsTRPCPluginOptions,
+  type CreateUWsContextOptions,
+  uWsTRPCPlugin,
 } from './uWsTRPCPlugin';
 
 const config = {
   prefix: '/trpc',
 };
 
-function createContext({ req, res, info }: CreateFastifyContextOptions) {
+function createContext({ req, res, info }: CreateUWsContextOptions) {
   const user = { name: req.getHeader('username') || 'anonymous' };
   return { req, res, user, info };
 }
@@ -134,7 +134,7 @@ function createServer(opts: ServerOptions) {
 
   const router = opts.appRouter;
 
-  fastifyTRPCPlugin(instance, {
+  uWsTRPCPlugin(instance, {
     // useWSS: true, // TODO
     prefix: config.prefix,
     trpcOptions: {
@@ -146,7 +146,7 @@ function createServer(opts: ServerOptions) {
         data;
         // ^?
       },
-    } satisfies FastifyTRPCPluginOptions<AppRouter>['trpcOptions'],
+    } satisfies UWsTRPCPluginOptions<AppRouter>['trpcOptions'],
   });
 
   instance.get('/hello', async (res, req) => {

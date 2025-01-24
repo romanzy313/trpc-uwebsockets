@@ -1,6 +1,6 @@
 import { TemplatedApp, HttpResponse, HttpRequest } from 'uWebSockets.js';
 import { applyWSHandler, WSSHandlerOptions } from './applyWsHandler';
-import { uWsHTTPRequestHandler } from './requestHandler';
+import { uWsHTTPRequestHandler } from './uWsRequestHandler';
 import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 

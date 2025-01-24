@@ -1,38 +1,35 @@
 import type { TemplatedApp, HttpRequest, HttpResponse } from 'uWebSockets.js';
 
-import {
-  type FastifyHandlerOptions,
-  fastifyRequestHandler,
-} from './uWsRequestHandler';
+import { type UWsHandlerOptions, uWsRequestHandler } from './uWsRequestHandler';
 import {
   // type NodeHTTPCreateContextFnOption,
   type NodeHTTPCreateContextFnOptions,
 } from '@trpc/server/adapters/node-http';
 import type { AnyRouter } from '@trpc/server';
 
-export interface FastifyTRPCPluginOptions<TRouter extends AnyRouter> {
+export interface UWsTRPCPluginOptions<TRouter extends AnyRouter> {
   prefix?: string;
   useWSS?: boolean;
   // middleware?: ConnectMiddleware; //TODO
   // TODO: UWSBuiltInOpts from applyWsHandler.ts
   maxBodySize?: number;
-  trpcOptions: FastifyHandlerOptions<TRouter, HttpRequest, HttpResponse>;
+  trpcOptions: UWsHandlerOptions<TRouter, HttpRequest, HttpResponse>;
 }
 
-export type CreateFastifyContextOptions = NodeHTTPCreateContextFnOptions<
+export type CreateUWsContextOptions = NodeHTTPCreateContextFnOptions<
   HttpRequest,
   HttpResponse
 >;
 
-export function fastifyTRPCPlugin<TRouter extends AnyRouter>(
-  fastify: TemplatedApp,
-  opts: FastifyTRPCPluginOptions<TRouter>
+export function uWsTRPCPlugin<TRouter extends AnyRouter>(
+  app: TemplatedApp,
+  opts: UWsTRPCPluginOptions<TRouter>
 ) {
   const prefix = opts.prefix ?? '';
 
   const handler = async (res: HttpResponse, req: HttpRequest) => {
     const url = req.getUrl().substring(prefix.length + 1);
-    await fastifyRequestHandler({
+    await uWsRequestHandler({
       ...opts.trpcOptions,
       req: req,
       res: res,
@@ -40,8 +37,8 @@ export function fastifyTRPCPlugin<TRouter extends AnyRouter>(
     });
   };
 
-  fastify.get(prefix + '/*', handler);
-  fastify.post(prefix + '/*', handler);
+  app.get(prefix + '/*', handler);
+  app.post(prefix + '/*', handler);
 
   // fastify.all(`${prefix}/:path`, async (req, res) => {
   //   const path = (req.params as any).path;
