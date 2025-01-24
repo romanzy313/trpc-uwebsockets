@@ -208,3 +208,33 @@ function createBody(
     },
   });
 }
+
+export async function uWsSendResponse(
+  res: HttpResponseDecorated,
+  fetchRes: Response
+): Promise<void> {
+  // TODO: stream response instead
+  // use writeResponseBody from packages/server/src/adapters/node-http/writeResponse.ts
+  // and https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
+  const unsteamed_text = await fetchRes.text();
+
+  console.log('unsteamed_text', unsteamed_text);
+
+  // TODO: is this sifficient?
+  if (res.aborted) return;
+
+  res.cork(() => {
+    res.writeStatus(fetchRes.statusText);
+
+    fetchRes.headers.forEach((value, key) => {
+      res.writeHeader(key, value);
+    });
+    // this is not needed, as forEach iterates over everything nicely
+    // doublecheck set-cookie though https://developer.mozilla.org/en-US/docs/Web/API/Headers/getSetCookie
+    // fetchRes.headers.getSetCookie().forEach((value) => {
+    //   res.writeHeader('set-cookie', value);
+    // });
+
+    res.end(unsteamed_text);
+  });
+}
