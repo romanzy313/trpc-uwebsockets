@@ -98,23 +98,19 @@ test.sequential('POST with body', async () => {
   {
     // handles small text
 
-    try {
-      await server.fetch(
-        {
-          method: 'POST',
-          body: JSON.stringify({ hello: 'world' }),
-          headers: {
-            'content-type': 'application/json',
-          },
+    await server.fetch(
+      {
+        method: 'POST',
+        body: JSON.stringify({ hello: 'world' }),
+        headers: {
+          'content-type': 'application/json',
         },
-        async (request) => {
-          expect(request.method).toBe('POST');
-          expect(await request.json()).toEqual({ hello: 'world' });
-        }
-      );
-    } catch (e) {
-      console.error('caught error', e);
-    }
+      },
+      async (request) => {
+        expect(request.method).toBe('POST');
+        expect(await request.json()).toEqual({ hello: 'world' });
+      }
+    );
   }
   {
     // handles a body that is long enough to come in multiple chunks

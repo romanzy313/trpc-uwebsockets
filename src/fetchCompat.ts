@@ -119,12 +119,18 @@ function createBody(
     start(controller) {
       console.log('ReadableStream: start');
       const onData = (ab: ArrayBuffer, isLast: boolean) => {
+        // special case of empty body
+        if (size == 0 && ab.byteLength == 0 && isLast) {
+          console.log('ReadableStream: empty body optimization');
+          onEnd();
+          return;
+        }
+
         console.log('ReadableStream: onData', 'ab', ab, 'isLast', isLast);
-        // size += chunk.length;
         size += ab.byteLength;
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
           console.log('ReadableStream: enqueue', 'ab', ab, 'size', size);
-          controller.enqueue(new Uint8Array(ab)); // error: TypeError: Received non-Uint8Array chunk
+          controller.enqueue(new Uint8Array(ab));
 
           // TODO: double and tripple check this
           if (isLast) {
