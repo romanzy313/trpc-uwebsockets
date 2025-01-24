@@ -6,6 +6,9 @@
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
+  "engines": {
+    "node": "^22.11.0"
+  },
   "scripts": {
     "start": "jest --watch",
     "build": "tsc",
@@ -24,7 +27,7 @@
   },
   "dependencies": {
     "@trpc/server": "11.0.0-rc.359",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.40.0"
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0"
   },
   "devDependencies": {
     "@trpc/client": "11.0.0-rc.359",
