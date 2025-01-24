@@ -413,15 +413,15 @@
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.27.8.tgz#6667fac16c436b5434a387a34dedb013198f6e6e"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
 
-"@trpc/client@11.0.0-rc.361":
-  version "11.0.0-rc.361"
-  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-rc.361.tgz#e1a796341052065889625780f73f96bc42592dae"
-  integrity sha512-4qMMtVtT+Yd5169OWfAhZYc0Cvi+HTSn0ZOnMnyHdWF6cOMHKBPGFDOl9RQjndhfPyuLzz175FulxbE9xJKeYg==
+"@trpc/client@11.0.0-rc.718":
+  version "11.0.0-rc.718"
+  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-rc.718.tgz#c31ced68153b5f29c172b27d3c6704d2c7f5e937"
+  integrity sha512-pTeMVFcNSw7akDz7XySsbBckfmoEYVSKLB4TCare4eAmJkFRnuPuFeKvs97hm2hxTQ43j9rrEOQGCRY84Vc4Ew==
 
-"@trpc/server@11.0.0-rc.361":
-  version "11.0.0-rc.361"
-  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-rc.361.tgz#3d456e4d29db6f7f5c252a1df155527edd17b899"
-  integrity sha512-Ius+nlvY57i76rv7g3QQDr6HK1bwz45ogc3vpl6C2OKjA6eSNw4C8yTQQFpha6iQqMwH9KOHLxAWc+GPW02hYQ==
+"@trpc/server@11.0.0-rc.718":
+  version "11.0.0-rc.718"
+  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-rc.718.tgz#2eaf77b2341396d2398411be9b703421c8291fa6"
+  integrity sha512-u9xKci9yEVBjia3X6XhYG9Me3klf0HmyQUAPCzxPYUg8WNvwXEGfTJrIC1bBfst2pjvv3xmXsi16e3tGU16c6g==
 
 "@tsconfig/node10@^1.0.7":
   version "1.0.9"
