@@ -10,13 +10,12 @@ import {
   type ResolveHTTPRequestOptionsContextFn,
 } from '@trpc/server/http';
 
-// FIXME depricated
-import { AnyRouter } from '@trpc/server';
+import type { AnyTRPCRouter } from '@trpc/server';
 
 export async function uWsHTTPRequestHandler<
-  TRouter extends AnyRouter,
+  TRouter extends AnyTRPCRouter,
   TRequest extends WrappedHTTPRequest,
-  TResponse extends WrappedHTTPResponse,
+  TResponse extends WrappedHTTPResponse
 >(opts: uHTTPRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const handleViaMiddleware = opts.middleware ?? ((_req, _res, next) => next());
   return handleViaMiddleware(opts.req, opts.res, async (err) => {

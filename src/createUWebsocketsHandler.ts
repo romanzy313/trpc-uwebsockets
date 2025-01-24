@@ -5,7 +5,7 @@ import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 
 // FIXME depricated
-import { AnyRouter } from '@trpc/server';
+import type { AnyRouter } from '@trpc/server';
 /**
  * @param uWsApp uWebsockets server instance
  * @param prefix The path to trpc without trailing slash (ex: "/trpc")
