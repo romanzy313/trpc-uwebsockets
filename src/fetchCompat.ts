@@ -120,39 +120,39 @@ function createBody(
 
   return new ReadableStream({
     start(controller) {
-      console.log('ReadableStream: start');
+      // console.log('ReadableStream: start');
       const onData = (ab: ArrayBuffer, isLast: boolean) => {
         // special case of empty body
         if (size == 0 && ab.byteLength == 0 && isLast) {
-          console.log('ReadableStream: empty body optimization');
+          // console.log('ReadableStream: empty body optimization');
           onEnd();
           return;
         }
 
-        console.log(
-          'ReadableStream: onData',
-          'ab',
-          ab,
-          'isLast',
-          isLast,
-          'hasClosed',
-          hasClosed,
-          'aborted',
-          res.aborted
-        );
+        // console.log(
+        //   'ReadableStream: onData',
+        //   'ab',
+        //   ab,
+        //   'isLast',
+        //   isLast,
+        //   'hasClosed',
+        //   hasClosed,
+        //   'aborted',
+        //   res.aborted
+        // );
         size += ab.byteLength;
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          console.log(
-            'ReadableStream: enqueue',
-            'ab',
-            ab,
-            'size',
-            size,
-            'hasClosed',
-            hasClosed,
-            'aborted',
-            res.aborted
-          );
+          // console.log(
+          //   'ReadableStream: enqueue',
+          //   'ab',
+          //   ab,
+          //   'size',
+          //   size,
+          //   'hasClosed',
+          //   hasClosed,
+          //   'aborted',
+          //   res.aborted
+          // );
           controller.enqueue(new Uint8Array(ab));
 
           // TODO: double and tripple check this
@@ -162,7 +162,7 @@ function createBody(
 
           return;
         }
-        console.log('ReadableStream: error', 'payload too large');
+        // console.log('ReadableStream: error', 'payload too large');
 
         controller.error(
           new TRPCError({
@@ -173,13 +173,13 @@ function createBody(
       };
 
       const onEnd = () => {
-        console.log(
-          'ReadableStream: onEnd',
-          'hasClosed',
-          hasClosed,
-          'aborted',
-          res.aborted!
-        );
+        // console.log(
+        //   'ReadableStream: onEnd',
+        //   'hasClosed',
+        //   hasClosed,
+        //   'aborted',
+        //   res.aborted!
+        // );
 
         if (hasClosed) {
           return;
@@ -192,13 +192,13 @@ function createBody(
       res.onAborted(onEnd);
     },
     cancel() {
-      console.log(
-        'ReadableStream: cancel',
-        'hasClosed',
-        hasClosed,
-        'aborted',
-        res.aborted!
-      );
+      // console.log(
+      //   'ReadableStream: cancel',
+      //   'hasClosed',
+      //   hasClosed,
+      //   'aborted',
+      //   res.aborted!
+      // );
 
       res.close();
     },

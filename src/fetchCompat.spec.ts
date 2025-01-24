@@ -41,7 +41,7 @@ function createServer(opts: { maxBodySize: number | null }) {
   }
 
   const port = uWs.us_socket_local_port(socket);
-  console.log('Listening to port ' + port);
+  // console.log('Listening to port ' + port);
 
   return {
     async close() {
@@ -219,3 +219,43 @@ test.sequential('aborted requests are handled', async () => {
 
   await server.close();
 });
+
+// TODO: this is a flaky test as timeout must be handled
+// very large body of 2^24 takes about 12ms on my machine
+// so i guess this is fine
+test.sequential(
+  'aborted requests in flight are handled',
+  { retry: 3 },
+  async () => {
+    const server = createServer({ maxBodySize: null });
+
+    expect.assertions(1);
+
+    const body = '0'.repeat(2 ** 24);
+    const controller = new AbortController();
+
+    console.time('large-body');
+
+    try {
+      setTimeout(() => {
+        controller.abort(); // start with aborted signal already
+      }, 5);
+      await server.fetch(
+        {
+          method: 'POST',
+          body,
+          signal: controller.signal,
+        },
+        async () => {
+          //
+        }
+      );
+    } catch (err: any) {
+      expect(err.name).toBe('AbortError');
+    }
+
+    console.timeEnd('large-body');
+
+    await server.close();
+  }
+);
