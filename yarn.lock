@@ -413,24 +413,15 @@
   resolved "https://registry.yarnpkg.com/@sinclair/typebox/-/typebox-0.27.8.tgz#6667fac16c436b5434a387a34dedb013198f6e6e"
   integrity sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==
 
-"@trpc/client@^11.0.0-next-beta.216":
-  version "11.0.0-next-beta.216"
-  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-next-beta.216.tgz#35057927f494663b9660d8a8b67751823e5b02e4"
-  integrity sha512-u3+G3vHVffX2X3cvIQsDJ/fcxLusntARd2be0PPLHJcy58HK/qdHkpu2cuILmLo0xHxcBQGQYNaHybKS1Z0JKg==
-  dependencies:
-    "@trpc/core" "11.0.0-next-beta.216+ccd4f1b0e"
+"@trpc/client@11.0.0-rc.359":
+  version "11.0.0-rc.359"
+  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-rc.359.tgz#8bf5005e143c5e9fb2c9cbfe2e1a31e296d5c251"
+  integrity sha512-IhSeFUNFKZRahA+2iYXJxxiq84f7AzB0vWu2Kznor7Jav0DOhlHWgygu0DPkzzMpMQk/zP9y3u7WatrFrCV8DA==
 
-"@trpc/core@11.0.0-next-beta.216+ccd4f1b0e":
-  version "11.0.0-next-beta.216"
-  resolved "https://registry.yarnpkg.com/@trpc/core/-/core-11.0.0-next-beta.216.tgz#e17f16de8f73f0f6351d0ae14555c9839f6a1a02"
-  integrity sha512-dmdSFeSzArkmdZvnymoQwAju0QBODC3PhLgBKTYgVIj0HATE/OJsPAKOxiqdcgm3YyN/zABm+ntiYmjLBJzTCA==
-
-"@trpc/server@^11.0.0-next-beta.216":
-  version "11.0.0-next-beta.216"
-  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-next-beta.216.tgz#fc06dfa3e7d845c73f8450a317ae9fb5dedde608"
-  integrity sha512-Cm1DwGm9yLApL7IBVoKYpsn1zq6LxV/CR4kwNNFS/uhe/zqsWP1lATdlLza+4SZe+jEEUrM/DRwd/h+pZrmiaw==
-  dependencies:
-    "@trpc/core" "11.0.0-next-beta.216+ccd4f1b0e"
+"@trpc/server@11.0.0-rc.359":
+  version "11.0.0-rc.359"
+  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-rc.359.tgz#8c26cd383ee291afdc24f81b251ac04ba2aa11ab"
+  integrity sha512-V2gIKmFfLpZNrdW4zyfq5XmDctA+bwcoNoNO9CvnDv7Oo9rOU9rvKAYSpKYTXbDS/JJJQ7OhKfuqbw0OXJX2WA==
 
 "@tsconfig/node10@^1.0.7":
   version "1.0.9"

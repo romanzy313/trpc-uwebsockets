@@ -6,7 +6,7 @@ import uWs from 'uWebSockets.js';
 import z from 'zod';
 import { applyWSHandler, createUWebSocketsHandler } from '../src/index';
 import {
-  createTRPCProxyClient,
+  createTRPCClient,
   createWSClient,
   httpBatchLink,
   splitLink,
@@ -15,7 +15,7 @@ import {
   // unstable_httpBatchStreamLink,
   wsLink,
 } from '@trpc/client';
-import { inferAsyncReturnType, initTRPC, TRPCError } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import EventEmitter from 'events';
 
 import { observable } from '@trpc/server/observable';
@@ -29,8 +29,9 @@ const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 interface Message {
   id: string;
 }
-// TODO test middleware?
+
 const ee = new EventEmitter();
+
 function makeRouter() {
   const onNewMessageSubscription = vi.fn();
   const onSubscriptionEnded = vi.fn();
@@ -121,9 +122,8 @@ function makeContext() {
 
   return createContext;
 }
-export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
+export type Context = Awaited<ReturnType<typeof makeContext>>;
 
-// export type Context = inferAsyncReturnType<ReturnType<typeof makeContext>>;
 async function startServer() {
   const app = uWs.App();
 
@@ -205,7 +205,7 @@ async function startServer() {
 function makeClient(headers: Record<string, string>) {
   const host = `localhost:${testPort}/trpc`;
 
-  const client = createTRPCProxyClient<AppRouter>({
+  const client = createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
         url: `http://${host}`,
@@ -230,7 +230,7 @@ function makeClientWithWs(headers: Record<string, string>) {
       return 200;
     },
   });
-  const client = createTRPCProxyClient<AppRouter>({
+  const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
       splitLink({
@@ -473,7 +473,7 @@ test(
       },
     });
 
-    const client = createTRPCProxyClient<AppRouter>({
+    const client = createTRPCClient<AppRouter>({
       links: [wsLink({ client: wsClient })],
     });
 
