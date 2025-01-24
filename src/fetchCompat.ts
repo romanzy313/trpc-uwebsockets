@@ -93,10 +93,14 @@ function createURL(req: HttpRequest, res: HttpResponseDecorated): URL {
     // TODO: reuse already parsed headers?
     const host = req.getHeader('host') ?? 'localhost';
 
-    const qs = req.getQuery();
     const path = req.getUrl();
+    const qs = req.getQuery();
 
-    return new URL(path + qs && `?${qs}`, `${protocol}//${host}`);
+    if (qs) {
+      return new URL(`${path}?${qs}`, `${protocol}//${host}`);
+    } else {
+      return new URL(path, `${protocol}//${host}`);
+    }
   } catch (cause) {
     throw new TRPCError({
       code: 'BAD_REQUEST',

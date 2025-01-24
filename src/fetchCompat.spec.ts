@@ -176,18 +176,36 @@ test.sequential('POST with body and maxBodySize', async () => {
 test.sequential('retains url and search params', async () => {
   const server = createServer({ maxBodySize: null });
 
-  await server.fetch(
-    {
-      method: 'GET',
-      path: '/?hello=world',
-    },
-    async (request) => {
-      const url = new URL(request.url);
-      expect(url.pathname).toBe('/');
-      expect(url.searchParams.get('hello')).toBe('world');
-    }
-  );
+  {
+    // with search params
+    await server.fetch(
+      {
+        method: 'GET',
+        path: '/?hello=world',
+      },
+      async (request) => {
+        const url = new URL(request.url);
+        expect(url.pathname).toBe('/');
+        expect(url.searchParams.get('hello')).toBe('world');
+        // expect(url.searchParams.size).toBe(1);
+      }
+    );
+  }
 
+  {
+    // without search params
+    await server.fetch(
+      {
+        method: 'GET',
+        path: '/',
+      },
+      async (request) => {
+        const url = new URL(request.url);
+        expect(url.pathname).toBe('/');
+        expect(url.searchParams.size).toBe(0);
+      }
+    );
+  }
   await server.close();
 });
 
