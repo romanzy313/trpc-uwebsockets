@@ -1,6 +1,8 @@
 import { test, expect } from 'vitest';
 import uWs from 'uWebSockets.js';
 
+// source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
+
 // this is needed to show nodes internal errors
 // source: https://stackoverflow.com/questions/78946606/use-node-trace-warnings-to-show-where-the-warning-was-created
 process.on('warning', (warning) => {
@@ -128,6 +130,63 @@ test.sequential('POST with body', async () => {
         expect((await request.text()).length).toBe(bodyLength);
       }
     );
+  }
+
+  await server.close();
+});
+
+test.sequential('POST with body and maxBodySize', async () => {
+  const server = createServer({ maxBodySize: 10 });
+  {
+    // exceeds
+
+    await server.fetch(
+      {
+        method: 'POST',
+        body: '0'.repeat(11),
+      },
+      async (request) => {
+        expect(request.method).toBe('POST');
+        await expect(request.text()).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[TRPCError: PAYLOAD_TOO_LARGE]`
+        );
+      }
+    );
+  }
+  {
+    // not exceeds
+    await server.fetch(
+      {
+        method: 'POST',
+        body: '0'.repeat(9),
+      },
+      async (request) => {
+        expect(request.method).toBe('POST');
+        expect(await request.text()).toBe('0'.repeat(9));
+      }
+    );
+  }
+
+  server.close();
+});
+
+test.sequential('retains url and search params', async () => {
+  const server = createServer({ maxBodySize: null });
+
+  try {
+    await server.fetch(
+      {
+        method: 'GET',
+        path: '/?hello=world',
+      },
+      async (request) => {
+        const url = new URL(request.url);
+        expect(url.pathname).toBe('/');
+        expect(url.searchParams.get('hello')).toBe('world');
+      }
+    );
+  } catch (e) {
+    console.error('errrr', e);
   }
 
   await server.close();

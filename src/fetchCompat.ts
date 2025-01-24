@@ -87,13 +87,15 @@ function createHeaders(req: HttpRequest): Headers {
 function createURL(req: HttpRequest, res: HttpResponseDecorated): URL {
   try {
     // FIXME: dont forget to set res.encrypted!
-
     const protocol = res.encrypted ? 'https:' : 'http:';
 
     // TODO: reuse already parsed headers?
     const host = req.getHeader('host') ?? 'localhost';
 
-    return new URL(req.getUrl(), `${protocol}//${host}`);
+    const qs = req.getQuery();
+    const path = req.getUrl();
+
+    return new URL(path + qs && `?${qs}`, `${protocol}//${host}`);
   } catch (cause) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
