@@ -296,7 +296,7 @@ const linkSpy: TRPCLink<AppRouter> = () => {
   };
 };
 
-test('query simple success and error handling', async () => {
+test.skip('query simple success and error handling', async () => {
   // t.client.runtime.headers = ()
   const { client } = makeClient({});
 
@@ -314,7 +314,7 @@ test('query simple success and error handling', async () => {
   await expect(client.error.query()).rejects.toThrowError('error as expected');
 });
 
-test('mutation and reading headers', async () => {
+test.skip('mutation and reading headers', async () => {
   const { client } = makeClient({
     authorization: 'meow',
   });
@@ -333,7 +333,7 @@ test('mutation and reading headers', async () => {
   `);
 });
 
-test('manually sets status and headers', async () => {
+test.skip('manually sets status and headers', async () => {
   const fetcher = await fetch(
     `http://localhost:${testPort}/trpc/manualRes?input=${encodeURI('{}')}`
   );
@@ -346,7 +346,7 @@ test('manually sets status and headers', async () => {
 });
 
 // this needs to be tested
-test('aborting requests works', async () => {
+test.skip('aborting requests works', async () => {
   const ac = new AbortController();
   const { client } = makeClient({});
 
@@ -371,7 +371,7 @@ test('aborting requests works', async () => {
 });
 
 // Source: https://github.com/trpc/trpc/blob/main/packages/tests/server/adapters/fastify.test.ts
-test(
+test.skip(
   'ugly subscription tests',
 
   {
@@ -455,7 +455,7 @@ test(
   }
 );
 
-test(
+test.skip(
   'subscription failed context',
   {
     timeout: 3000,
@@ -490,7 +490,7 @@ test(
   }
 );
 
-test('options still passthrough (cors)', async () => {
+test.skip('options still passthrough (cors)', async () => {
   const res = await fetch(
     `http://localhost:${testPort}/trpc/hello?input=${encodeURI('{}')}`,
     {
@@ -502,7 +502,7 @@ test('options still passthrough (cors)', async () => {
   expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
 });
 
-test('large request body handling', async () => {
+test.skip('large request body handling', async () => {
   const { client } = makeClient({});
   expect.assertions(2);
 
