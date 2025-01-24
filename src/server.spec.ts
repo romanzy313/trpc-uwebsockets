@@ -329,7 +329,7 @@ describe('anonymous user', () => {
   test('query', async () => {
     expect(await app.client.ping.query()).toMatchInlineSnapshot(`"pong"`);
     expect(await app.client.hello.query()).toMatchInlineSnapshot(`
-          {
+          Object {
             "text": "hello anonymous",
           }
       `);
@@ -338,7 +338,7 @@ describe('anonymous user', () => {
         username: 'test',
       })
     ).toMatchInlineSnapshot(`
-          {
+          Object {
             "text": "hello test",
           }
       `);
@@ -351,7 +351,7 @@ describe('anonymous user', () => {
         data: { title: 'new_title', text: 'new_text' },
       })
     ).toMatchInlineSnapshot(`
-      {
+      Object {
         "error": "Unauthorized user",
       }
     `);
