@@ -50,7 +50,6 @@ export function uWsToRequest(
   if (method !== 'GET' && method !== 'HEAD') {
     init.body = createBody(res, opts);
 
-    // FIXME: is this needed?
     // init.duplex = 'half' must be set when body is a ReadableStream, and Node follows the spec.
     // However, this property is not defined in the TypeScript types for RequestInit, so we have
     // to cast it here in order to set it without a type error.
@@ -118,22 +117,24 @@ function createBody(
 
   return new ReadableStream({
     start(controller) {
+      console.log('ReadableStream: start');
       const onData = (ab: ArrayBuffer, isLast: boolean) => {
-        // TODO: check this !!!
-        if (isLast) {
-          onEnd();
-          return;
-        }
-
+        console.log('ReadableStream: onData', 'ab', ab, 'isLast', isLast);
         // size += chunk.length;
         size += ab.byteLength;
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          // controller.enqueue(
-          //   new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
-          // );
-          controller.enqueue(ab);
+          console.log('ReadableStream: enqueue', 'ab', ab, 'size', size);
+          controller.enqueue(new Uint8Array(ab)); // error: TypeError: Received non-Uint8Array chunk
+
+          // TODO: double and tripple check this
+          if (isLast) {
+            onEnd();
+          }
+
           return;
         }
+        console.log('ReadableStream: error', 'payload too large');
+
         controller.error(
           new TRPCError({
             code: 'PAYLOAD_TOO_LARGE',
@@ -143,16 +144,21 @@ function createBody(
       };
 
       const onEnd = () => {
+        console.log('ReadableStream: onEnd (ABORTED!)', 'hasClosed', hasClosed);
+
         if (hasClosed) {
           return;
         }
         hasClosed = true;
         controller.close();
       };
+
       res.onData(onData);
       res.onAborted(onEnd);
     },
     cancel() {
+      console.log('ReadableStream: cancel', 'hasClosed', hasClosed);
+
       res.close();
     },
   });

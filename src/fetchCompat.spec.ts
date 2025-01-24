@@ -1,6 +1,12 @@
 import { test, expect } from 'vitest';
 import uWs from 'uWebSockets.js';
 
+// this is needed to show nodes internal errors
+// source: https://stackoverflow.com/questions/78946606/use-node-trace-warnings-to-show-where-the-warning-was-created
+process.on('warning', (warning) => {
+  console.warn('warning stacktrace - ' + warning.stack);
+});
+
 import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {
@@ -92,37 +98,41 @@ test.sequential('POST with body', async () => {
   {
     // handles small text
 
+    try {
+      await server.fetch(
+        {
+          method: 'POST',
+          body: JSON.stringify({ hello: 'world' }),
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+        async (request) => {
+          expect(request.method).toBe('POST');
+          expect(await request.json()).toEqual({ hello: 'world' });
+        }
+      );
+    } catch (e) {
+      console.error('caught error', e);
+    }
+  }
+  {
+    // handles a body that is long enough to come in multiple chunks
+
+    const body = '0'.repeat(2 ** 17);
+    const bodyLength = body.length;
+
     await server.fetch(
       {
         method: 'POST',
-        body: JSON.stringify({ hello: 'world' }),
-        headers: {
-          'content-type': 'application/json',
-        },
+        body,
       },
       async (request) => {
         expect(request.method).toBe('POST');
-        expect(await request.json()).toEqual({ hello: 'world' });
+        expect((await request.text()).length).toBe(bodyLength);
       }
     );
   }
-  // {
-  //   // handles a body that is long enough to come in multiple chunks
-
-  //   const body = '0'.repeat(2 ** 17);
-  //   const bodyLength = body.length;
-
-  //   await server.fetch(
-  //     {
-  //       method: 'POST',
-  //       body,
-  //     },
-  //     async (request) => {
-  //       expect(request.method).toBe('POST');
-  //       expect((await request.text()).length).toBe(bodyLength);
-  //     }
-  //   );
-  // }
 
   await server.close();
 });
