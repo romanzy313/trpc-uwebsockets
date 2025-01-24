@@ -32,6 +32,7 @@ export function uWsToRequest(
   const ac = new AbortController();
 
   const onAbort = () => {
+    console.log('uWsToRequest: onAbort triggered', 'res.aboorted', res.aborted);
     res.aborted = true;
     ac.abort();
   };
@@ -128,10 +129,30 @@ function createBody(
           return;
         }
 
-        console.log('ReadableStream: onData', 'ab', ab, 'isLast', isLast);
+        console.log(
+          'ReadableStream: onData',
+          'ab',
+          ab,
+          'isLast',
+          isLast,
+          'hasClosed',
+          hasClosed,
+          'aborted',
+          res.aborted
+        );
         size += ab.byteLength;
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          console.log('ReadableStream: enqueue', 'ab', ab, 'size', size);
+          console.log(
+            'ReadableStream: enqueue',
+            'ab',
+            ab,
+            'size',
+            size,
+            'hasClosed',
+            hasClosed,
+            'aborted',
+            res.aborted
+          );
           controller.enqueue(new Uint8Array(ab));
 
           // TODO: double and tripple check this
@@ -152,7 +173,13 @@ function createBody(
       };
 
       const onEnd = () => {
-        console.log('ReadableStream: onEnd (ABORTED!)', 'hasClosed', hasClosed);
+        console.log(
+          'ReadableStream: onEnd',
+          'hasClosed',
+          hasClosed,
+          'aborted',
+          res.aborted!
+        );
 
         if (hasClosed) {
           return;
@@ -165,7 +192,13 @@ function createBody(
       res.onAborted(onEnd);
     },
     cancel() {
-      console.log('ReadableStream: cancel', 'hasClosed', hasClosed);
+      console.log(
+        'ReadableStream: cancel',
+        'hasClosed',
+        hasClosed,
+        'aborted',
+        res.aborted!
+      );
 
       res.close();
     },

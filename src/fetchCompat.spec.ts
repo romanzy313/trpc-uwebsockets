@@ -9,6 +9,8 @@ process.on('warning', (warning) => {
   console.warn('warning stacktrace - ' + warning.stack);
 });
 
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {
@@ -170,23 +172,49 @@ test.sequential('POST with body and maxBodySize', async () => {
   server.close();
 });
 
+// TODO: fix http://localhost:53689/?undefined when no query is used!
 test.sequential('retains url and search params', async () => {
   const server = createServer({ maxBodySize: null });
+
+  await server.fetch(
+    {
+      method: 'GET',
+      path: '/?hello=world',
+    },
+    async (request) => {
+      const url = new URL(request.url);
+      expect(url.pathname).toBe('/');
+      expect(url.searchParams.get('hello')).toBe('world');
+    }
+  );
+
+  await server.close();
+});
+
+// testing aborts without mocks...is painful...
+
+test.sequential('aborted requests are handled', async () => {
+  const server = createServer({ maxBodySize: null });
+
+  expect.assertions(1);
+
+  const body = '0'.repeat(2 ** 7);
+  const controller = new AbortController();
+  controller.abort(); // start with aborted signal already
 
   try {
     await server.fetch(
       {
-        method: 'GET',
-        path: '/?hello=world',
+        method: 'POST',
+        body,
+        signal: controller.signal,
       },
-      async (request) => {
-        const url = new URL(request.url);
-        expect(url.pathname).toBe('/');
-        expect(url.searchParams.get('hello')).toBe('world');
+      async () => {
+        //
       }
     );
-  } catch (e) {
-    console.error('errrr', e);
+  } catch (err: any) {
+    expect(err.name).toBe('AbortError');
   }
 
   await server.close();
