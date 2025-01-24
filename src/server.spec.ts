@@ -1,4 +1,12 @@
-import { vi, test, expect, describe, beforeEach, afterEach } from 'vitest';
+import {
+  vi,
+  test,
+  expect,
+  describe,
+  beforeEach,
+  afterEach,
+  expectTypeOf,
+} from 'vitest';
 import uWs from 'uWebSockets.js';
 import { EventEmitter } from 'events';
 import {
@@ -393,77 +401,77 @@ describe('anonymous user', () => {
   //   client.close();
   // });
 
-  // test('subscription', async () => {
-  //   app.ee.once('subscription:created', () => {
-  //     setTimeout(() => {
-  //       app.ee.emit('server:msg', {
-  //         id: '1',
-  //       });
-  //       app.ee.emit('server:msg', {
-  //         id: '2',
-  //       });
-  //     });
-  //   });
+  test.skip('subscription', async () => {
+    app.ee.once('subscription:created', () => {
+      setTimeout(() => {
+        app.ee.emit('server:msg', {
+          id: '1',
+        });
+        app.ee.emit('server:msg', {
+          id: '2',
+        });
+      });
+    });
 
-  //   const onStartedMock = vi.fn();
-  //   const onDataMock = vi.fn();
-  //   const sub = app.client.onMessage.subscribe('onMessage', {
-  //     onStarted: onStartedMock,
-  //     onData(data) {
-  //       expectTypeOf(data).not.toBeAny();
-  //       expectTypeOf(data).toMatchTypeOf<Message>();
-  //       onDataMock(data);
-  //     },
-  //   });
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
+    const sub = app.client.onMessage.subscribe('onMessage', {
+      onStarted: onStartedMock,
+      onData(data) {
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        onDataMock(data);
+      },
+    });
 
-  //   await waitFor(() => {
-  //     expect(onStartedMock).toHaveBeenCalledTimes(1);
-  //     expect(onDataMock).toHaveBeenCalledTimes(2);
-  //   });
+    await vi.waitFor(() => {
+      expect(onStartedMock).toHaveBeenCalledTimes(1);
+      expect(onDataMock).toHaveBeenCalledTimes(2);
+    });
 
-  //   app.ee.emit('server:msg', {
-  //     id: '3',
-  //   });
+    app.ee.emit('server:msg', {
+      id: '3',
+    });
 
-  //   await waitFor(() => {
-  //     expect(onDataMock).toHaveBeenCalledTimes(3);
-  //   });
+    await vi.waitFor(() => {
+      expect(onDataMock).toHaveBeenCalledTimes(3);
+    });
 
-  //   expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
-  //     Array [
-  //       Array [
-  //         Object {
-  //           "id": "1",
-  //         },
-  //       ],
-  //       Array [
-  //         Object {
-  //           "id": "2",
-  //         },
-  //       ],
-  //       Array [
-  //         Object {
-  //           "id": "3",
-  //         },
-  //       ],
-  //     ]
-  //   `);
+    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          Object {
+            "id": "1",
+          },
+        ],
+        Array [
+          Object {
+            "id": "2",
+          },
+        ],
+        Array [
+          Object {
+            "id": "3",
+          },
+        ],
+      ]
+    `);
 
-  //   sub.unsubscribe();
+    sub.unsubscribe();
 
-  //   await waitFor(() => {
-  //     expect(app.ee.listenerCount('server:msg')).toBe(0);
-  //     expect(app.ee.listenerCount('server:error')).toBe(0);
-  //   });
-  // });
+    await vi.waitFor(() => {
+      expect(app.ee.listenerCount('server:msg')).toBe(0);
+      expect(app.ee.listenerCount('server:error')).toBe(0);
+    });
+  });
 
-  // test('streaming', async () => {
-  //   const results = await Promise.all([
-  //     app.client.deferred.query({ wait: 3 }),
-  //     app.client.deferred.query({ wait: 1 }),
-  //     app.client.deferred.query({ wait: 2 }),
-  //   ]);
-  //   expect(results).toEqual([3, 1, 2]);
-  //   expect(orderedResults).toEqual([1, 2, 3]);
-  // });
+  test.skip('streaming', async () => {
+    const results = await Promise.all([
+      app.client.deferred.query({ wait: 3 }),
+      app.client.deferred.query({ wait: 1 }),
+      app.client.deferred.query({ wait: 2 }),
+    ]);
+    expect(results).toEqual([3, 1, 2]);
+    expect(orderedResults).toEqual([1, 2, 3]);
+  });
 });
