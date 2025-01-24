@@ -4,14 +4,14 @@ import { uWsHTTPRequestHandler } from './requestHandler';
 import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 
-// FIXME depricated
-import type { AnyRouter } from '@trpc/server';
+import type { AnyTRPCRouter } from '@trpc/server';
+
 /**
  * @param uWsApp uWebsockets server instance
  * @param prefix The path to trpc without trailing slash (ex: "/trpc")
  * @param opts handler options
  */
-export function createUWebSocketsHandler<TRouter extends AnyRouter>(
+export function createUWebSocketsHandler<TRouter extends AnyTRPCRouter>(
   uWsApp: TemplatedApp,
   prefix: string,
   opts: uHTTPHandlerOptions<TRouter, WrappedHTTPRequest, HttpResponse>

@@ -5,8 +5,7 @@ import {
   TRPCError,
   getTRPCErrorFromUnknown,
   transformTRPCResponse,
-  // FIXME depricated
-  AnyRouter,
+  AnyTRPCRouter,
   // FIXME depricated
   callProcedure,
   // FIXME depricated
@@ -59,43 +58,41 @@ export type CreateWSSContextFnOptions = Omit<
 /**
  * @public
  */
-export type CreateWSSContextFn<TRouter extends AnyRouter> = (
+export type CreateWSSContextFn<TRouter extends AnyTRPCRouter> = (
   opts: CreateWSSContextFnOptions
 ) => MaybePromise<inferRouterContext<TRouter>>;
 
 /**
  * Web socket server handler
  */
-export type WSSHandlerOptions<TRouter extends AnyRouter> = BaseHandlerOptions<
-  TRouter,
-  WrappedHTTPRequest
-> &
-  (object extends inferRouterContext<TRouter>
-    ? {
-        /**
-         * @link https://trpc.io/docs/v11/context
-         **/
-        createContext?: CreateWSSContextFn<TRouter>;
-      }
-    : {
-        /**
-         * @link https://trpc.io/docs/v11/context
-         **/
-        createContext: CreateWSSContextFn<TRouter>;
-      }) & {
-    app: TemplatedApp;
-    process?: NodeJS.Process;
-  } & UWSBuiltInOpts;
+export type WSSHandlerOptions<TRouter extends AnyTRPCRouter> =
+  BaseHandlerOptions<TRouter, WrappedHTTPRequest> &
+    (object extends inferRouterContext<TRouter>
+      ? {
+          /**
+           * @link https://trpc.io/docs/v11/context
+           **/
+          createContext?: CreateWSSContextFn<TRouter>;
+        }
+      : {
+          /**
+           * @link https://trpc.io/docs/v11/context
+           **/
+          createContext: CreateWSSContextFn<TRouter>;
+        }) & {
+      app: TemplatedApp;
+      process?: NodeJS.Process;
+    } & UWSBuiltInOpts;
 
 type Decoration = {
   clientSubscriptions: Map<number | string, Unsubscribable>;
-  ctxPromise: MaybePromise<inferRouterContext<AnyRouter>> | undefined;
-  ctx: inferRouterContext<AnyRouter> | undefined;
+  ctxPromise: MaybePromise<inferRouterContext<AnyTRPCRouter>> | undefined;
+  ctx: inferRouterContext<AnyTRPCRouter> | undefined;
   req: WrappedHTTPRequest;
   res: WrappedHTTPResponse;
 };
 
-export function applyWSHandler<TRouter extends AnyRouter>(
+export function applyWSHandler<TRouter extends AnyTRPCRouter>(
   prefix: string,
   opts: WSSHandlerOptions<TRouter>
 ) {
