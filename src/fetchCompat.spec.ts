@@ -63,7 +63,7 @@ function createServer(opts: { maxBodySize: number | null }) {
   };
 }
 
-test('basic GET', async () => {
+test.sequential('basic GET', async () => {
   const server = createServer({ maxBodySize: null });
   await server.fetch({}, async (request) => {
     expect(request.method).toBe('GET');
@@ -71,7 +71,7 @@ test('basic GET', async () => {
   await server.close();
 });
 
-test('basic POST', async () => {
+test.sequential('basic POST', async () => {
   const server = createServer({ maxBodySize: null });
 
   await server.fetch(
@@ -86,7 +86,7 @@ test('basic POST', async () => {
   await server.close();
 });
 
-test.skip('POST with body', async () => {
+test.sequential('POST with body', async () => {
   const server = createServer({ maxBodySize: null });
 
   {
