@@ -224,7 +224,8 @@ export async function uWsSendResponse(
   if (res.aborted) return;
 
   res.cork(() => {
-    res.writeStatus(fetchRes.statusText);
+    res.writeStatus(fetchRes.status.toString());
+    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
 
     fetchRes.headers.forEach((value, key) => {
       res.writeHeader(key, value);

@@ -115,7 +115,7 @@ test.sequential('smoke', async () => {
 
   expect(res.ok).toBe(true);
   expect(res.status).toBe(200);
-  expect(res.statusText).toBe('OK');
+  // expect(res.statusText).toBe('OK');
   expect(res.headers.get('content-type')).toBe('vi/test');
   expect(res.headers.get('set-cookie')).toBe('one=1, two=2');
 
