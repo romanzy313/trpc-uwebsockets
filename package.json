@@ -14,6 +14,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "vitest run",
+    "test11": "vitest run src/fetchCompat.spec.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:publish": "yarn test && yarn build && yarn pack",
