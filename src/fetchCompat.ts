@@ -241,202 +241,15 @@ export async function uWsSendResponse(
   });
 }
 
-// TODO: use the tryEnd instead to deal with potential backpressure
-export async function uWsSendResponseStreamed(
-  res: HttpResponseDecorated,
-  fetchRes: Response
-): Promise<void> {
-  // TODO: is this sifficient?
-  if (res.aborted) return;
-
-  res.onAborted(() => {
-    console.log(
-      'uWsSendResponseStreamed: onAbort triggered',
-      'res.aboorted status already',
-      res.aborted
-    );
-    res.aborted = true;
-  });
-
-  res.cork(() => {
-    res.writeStatus(fetchRes.status.toString());
-    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
-
-    fetchRes.headers.forEach((value, key) => {
-      console.log('uWsSendResponseStreamed: writing header', key, '=', value);
-      res.writeHeader(key, value);
-    });
-  });
-
-  // https://stackoverflow.com/questions/62121310/how-to-handle-streaming-data-using-fetch
-  if (fetchRes.body) {
-    const reader = fetchRes.body.getReader();
-
-    // these are for debugging purposes
-    let chunkCount = 0;
-    let totalSent = 0;
-
-    while (true) {
-      const { value, done } = await reader.read();
-
-      if (done) {
-        console.log(
-          'uWsSendResponseStreamed: finished sending',
-          value,
-          'done',
-          done
-        );
-        if (!res.aborted) {
-          res.end();
-        }
-        return;
-      }
-
-      console.log(
-        'uWsSendResponseStreamed: got chunk with len',
-        value.length,
-        'done',
-        done
-      );
-
-      // FIXME: this is actually very wasteful to send many small streamed respones
-      // should they be grouped to some larger buffer/timeout?
-      if (res.aborted) {
-        console.log(
-          'uWsSendResponseStreamed: abort before corking response',
-          value,
-          'done',
-          done
-        );
-        return;
-      }
-      res.cork(() => {
-        chunkCount++;
-        const noBackPressure = res.write(value);
-        totalSent += value.byteLength;
-        if (!noBackPressure) {
-          console.error(
-            'uWsSendResponseStreamed: BACKPRESSURE DETECTED',
-            'chunkCount',
-            chunkCount,
-            'totalSentWithoutBackpressure',
-            totalSent,
-            'thisChunkLen',
-            value.byteLength
-          );
-        }
-      });
-    }
-  } else {
-    res.end();
-    return;
-  }
-}
-
-// using
-// packages/server/src/adapters/node-http/writeResponse.ts
-export async function uWsSendResponseStreamed2(
-  fetchReq: Request, // this is needed for the abort signal
-  fetchRes: Response,
-  res: HttpResponseDecorated
-): Promise<void> {
-  // TODO: is this sifficient?
-  if (res.aborted) return;
-
-  res.onAborted(() => {
-    console.log(
-      'uWsSendResponseStreamed2: onAbort triggered',
-      'res.aboorted status already',
-      res.aborted
-    );
-    res.aborted = true;
-  });
-
-  res.cork(() => {
-    res.writeStatus(fetchRes.status.toString());
-    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
-
-    fetchRes.headers.forEach((value, key) => {
-      res.writeHeader(key, value);
-    });
-  });
-
-  // https://stackoverflow.com/questions/62121310/how-to-handle-streaming-data-using-fetch
-  if (fetchRes.body) {
-    // these are for debugging purposes
-    let chunkCount = 0;
-    let totalSent = 0;
-
-    try {
-      const writeableStream = new WritableStream({
-        // TODO check types
-        async write(chunk: Uint8Array) {
-          console.log(
-            'uWsSendResponseStreamed2: got chunk with value',
-            chunk,
-            'len',
-            chunk.length
-          );
-
-          if (res.aborted) {
-            console.error(
-              'uWsSendResponseStreamed2: aborted before writing chunk',
-              chunk
-            );
-            return;
-          }
-
-          res.cork(() => {
-            chunkCount++;
-            const noBackPressure = res.write(chunk);
-            totalSent += chunk.byteLength;
-            if (!noBackPressure) {
-              console.error(
-                'uWsSendResponseStreamed2: BACKPRESSURE DETECTED',
-                'chunkCount',
-                chunkCount,
-                'totalSentWithoutBackpressure',
-                totalSent,
-                'thisChunkLen',
-                chunk.byteLength
-              );
-            }
-          });
-        },
-      });
-
-      await fetchRes.body.pipeTo(writeableStream, {
-        signal: fetchReq.signal,
-      });
-    } catch (err) {
-      if (isAbortError(err)) {
-        console.error('uWsSendResponseStreamed2: abort error encountered'); // so that eslint donest complain
-
-        return;
-      }
-      console.error('uWsSendResponseStreamed2: streamed response 2 error', err); // so that eslint donest complain
-      throw err;
-    } finally {
-      if (!res.aborted) {
-        res.end();
-      } else {
-        console.error('uWsSendResponseStreamed2: aborted before writing chunk');
-      }
-    }
-  } else {
-    res.end();
-  }
-}
-
 // using
 // packages/server/src/adapters/node-http/writeResponse.ts and
 // https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
-export async function uWsSendResponseStreamed3(
-  fetchReq: Request,
+export async function uWsSendResponseStreamed(
   fetchRes: Response,
   res: HttpResponseDecorated
 ): Promise<void> {
-  const maxChunkSize = 1000;
+  // TODO: maybe?
+  // const maxChunkSize = 1000;
 
   if (res.aborted) return;
   res.cork(() => {
@@ -451,8 +264,6 @@ export async function uWsSendResponseStreamed3(
     res.endWithoutBody();
     return;
   }
-
-  const reader = fetchRes.body.getReader();
 
   let requestFinished = false;
   const onAbortedOrFinishedResponse = () => {
@@ -481,13 +292,15 @@ export async function uWsSendResponseStreamed3(
     // also the writer should stop as abortion signal is propogated though
     console.log(
       'uWsSendResponseStreamed3: onAborted was triggered. res.aborted',
-      res.aborted,
-      'request.signal.aborted',
-      fetchReq.signal.aborted
+      res.aborted
+      // 'request.signal.aborted',
+      // fetchReq.signal.aborted
     );
     res.aborted = true;
     onAbortedOrFinishedResponse();
   });
+
+  const reader = fetchRes.body.getReader();
 
   while (!requestFinished) {
     // maybe try with promise API?
@@ -517,8 +330,11 @@ export async function uWsSendResponseStreamed3(
     if (res.aborted) {
       return;
     }
-    const ok = res.write(value);
 
+    let ok = false;
+    res.cork(() => {
+      ok = res.write(value);
+    });
     if (!ok) {
       console.error(
         'uWsSendResponseStreamed3: BACKPRESSURE DETECTED',
@@ -530,6 +346,7 @@ export async function uWsSendResponseStreamed3(
         value.byteLength
       );
 
+      // FIXME: this is never triggered, must use tryEnd instead!
       res.onWritable((offset) => {
         chunkCount++;
         console.log(
@@ -556,5 +373,67 @@ export async function uWsSendResponseStreamed3(
         return ok;
       });
     }
+  }
+}
+
+// TODO: use the tryEnd instead to deal with potential backpressure
+export async function uWsSendResponseStreamed__old_dont_use(
+  fetchRes: Response,
+  res: HttpResponseDecorated
+): Promise<void> {
+  // TODO: is this sifficient?
+  if (res.aborted) return;
+
+  res.onAborted(() => {
+    console.log(
+      'uWsSendResponseStreamed: onAbort triggered',
+      'res.aboorted status already',
+      res.aborted
+    );
+    res.aborted = true;
+  });
+
+  res.cork(() => {
+    res.writeStatus(fetchRes.status.toString());
+    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
+
+    fetchRes.headers.forEach((value, key) => {
+      res.writeHeader(key, value);
+    });
+  });
+
+  // https://stackoverflow.com/questions/62121310/how-to-handle-streaming-data-using-fetch
+  if (fetchRes.body) {
+    const reader = fetchRes.body.getReader();
+
+    while (true) {
+      const { value, done } = await reader.read();
+
+      if (done) {
+        if (!res.aborted) {
+          res.end();
+        }
+        return;
+      }
+
+      if (res.aborted) {
+        console.log(
+          'uWsSendResponseStreamed: abort before corking response',
+          value,
+          'done',
+          done
+        );
+        return;
+      }
+      res.cork(() => {
+        const noBackPressure = res.write(value);
+        if (!noBackPressure) {
+          console.error('uWsSendResponseStreamed: BACKPRESSURE DETECTED');
+        }
+      });
+    }
+  } else {
+    res.end();
+    return;
   }
 }
