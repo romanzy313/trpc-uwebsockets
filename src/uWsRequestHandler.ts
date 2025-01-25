@@ -20,9 +20,7 @@ import {
 import {
   decorateHttpResponse,
   uWsToRequest,
-  uWsSendResponse,
   uWsSendResponseStreamed,
-  uWsSendResponseStreamed__old_dont_use,
 } from './fetchCompat';
 
 export type UWsHandlerOptions<
@@ -75,8 +73,6 @@ export async function uWsRequestHandler<
     },
   });
 
-  // await uWsSendResponse(resDecorated, res);
-  // await uWsSendResponseStreamed__old_dont_use(fetchRes, resDecorated);
   await uWsSendResponseStreamed(fetchRes, resDecorated);
 }
 

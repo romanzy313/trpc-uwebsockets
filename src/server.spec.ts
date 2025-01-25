@@ -182,7 +182,6 @@ function createServer(opts: ServerOptions) {
   }
 
   const port = uWs.us_socket_local_port(socket);
-  console.log('Listening to port ' + port);
 
   return {
     stop() {
@@ -265,7 +264,7 @@ function createClientSSE(opts: ClientOptions) {
   const host = `localhost:${opts.port}${config.prefix}`;
   const client = createTRPCClient<AppRouter>({
     links: [
-      loggerLink(),
+      // loggerLink(),
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
         // ponyfill EventSource
@@ -341,7 +340,7 @@ async function createApp(opts: AppOptions = {}) {
 
 let app: Awaited<ReturnType<typeof createApp>>;
 
-describe('anonymous user', () => {
+describe('server', () => {
   beforeEach(async () => {
     orderedResults.length = 0;
     app = await createApp();

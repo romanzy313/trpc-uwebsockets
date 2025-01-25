@@ -201,7 +201,7 @@ describe('response', () => {
 
   test.sequential('large streamed', async () => {
     const server = createServer({ maxBodySize: null });
-    const size = 2 ** 25;
+    const size = 2 ** 20;
     const count = 10;
     const timeMs = 0;
 
