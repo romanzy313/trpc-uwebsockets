@@ -38,6 +38,7 @@ type UWsRequestHandlerOptions<
   req: TRequest;
   res: TResponse;
   path: string;
+  maxBodySize?: number;
 };
 
 export async function uWsRequestHandler<
@@ -57,7 +58,7 @@ export async function uWsRequestHandler<
   const resDecorated = decorateHttpResponse(opts.res);
 
   const fetchReq = uWsToRequest(opts.req, resDecorated, {
-    maxBodySize: null, // TODO
+    maxBodySize: opts.maxBodySize ?? null,
   });
 
   const fetchRes = await resolveResponse({

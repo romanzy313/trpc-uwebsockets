@@ -12,7 +12,6 @@ export interface UWsTRPCPluginOptions<TRouter extends AnyRouter> {
   useWSS?: boolean;
   // middleware?: ConnectMiddleware; //TODO
   // TODO: UWSBuiltInOpts from applyWsHandler.ts
-  maxBodySize?: number;
   trpcOptions: UWsHandlerOptions<TRouter, HttpRequest, HttpResponse>;
 }
 
