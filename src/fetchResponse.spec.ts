@@ -16,10 +16,25 @@ import {
   uWsToRequest,
   uWsSendResponse,
   uWsSendResponseStreamed,
+  uWsSendResponseStreamed2,
 } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {
   const app = uWs.App();
+
+  app.get('/empty', async (res, _req) => {
+    const resDecorated = decorateHttpResponse(res);
+
+    res.onAborted(() => {
+      resDecorated.aborted = true;
+    });
+
+    const resFetch = new Response('', {
+      status: 200,
+    });
+
+    await uWsSendResponseStreamed(resDecorated, resFetch);
+  });
 
   app.get('/regular', async (res, _req) => {
     const resDecorated = decorateHttpResponse(res);
@@ -78,13 +93,36 @@ function createServer(opts: { maxBodySize: number | null }) {
 
     // const headers = new Headers();
 
-    const resFetch = new Response(body, {
+    const fetchRes = new Response(body, {
       status: 200,
     });
 
-    await uWsSendResponseStreamed(resDecorated, resFetch);
+    await uWsSendResponseStreamed(resDecorated, fetchRes);
   });
+  app.get('/large2/:size', async (res, req) => {
+    const resDecorated = decorateHttpResponse(res);
 
+    res.onAborted(() => {
+      resDecorated.aborted = true;
+    });
+
+    const size = parseInt(req.getParameter('size')!);
+    const body = '0'.repeat(size);
+
+    // const resInit: ResponseInit = {
+    //   status: 200,
+    // };
+
+    // const headers = new Headers();
+
+    const fetchReq = uWsToRequest(req, resDecorated, { maxBodySize: null });
+    // TODO: readable stream can be passed to the body
+    const fetchRes = new Response(body, {
+      status: 200,
+    });
+
+    await uWsSendResponseStreamed2(fetchReq, fetchRes, resDecorated);
+  });
   let socket: uWs.us_listen_socket | false | null = null;
 
   app.listen('0.0.0.0', 0, (token) => {
@@ -120,6 +158,20 @@ function createServer(opts: { maxBodySize: number | null }) {
 }
 
 describe('response', () => {
+  test.sequential('empty body', async () => {
+    const server = createServer({ maxBodySize: null });
+    const res = await server.fetch({
+      path: '/empty',
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect((await res.text()).length).toBe(0);
+
+    await server.close();
+  });
+
   test.sequential('regular', async () => {
     const server = createServer({ maxBodySize: null });
     const res = await server.fetch({
@@ -154,7 +206,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('large streamed', async () => {
+  test.sequential('large streamed 1', async () => {
     const server = createServer({ maxBodySize: null });
     const size = 2 ** 24;
 
@@ -176,7 +228,28 @@ describe('response', () => {
 
     await server.close();
   });
+  test.sequential('large streamed 2', async () => {
+    const server = createServer({ maxBodySize: null });
+    const size = 2 ** 24;
 
+    const controller = new AbortController();
+    controller.abort(); // start with aborted signal already
+
+    console.time('large streamed 2');
+
+    const res = await server.fetch({
+      path: `/large2/${size}`,
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect((await res.text()).length).toBe(size);
+
+    console.timeEnd('large streamed 2');
+
+    await server.close();
+  });
   test.sequential('aborted request', async () => {
     expect.assertions(1);
 

@@ -17,7 +17,7 @@ import {
   // type NodeHTTPCreateContextFnOptions,
 } from '@trpc/server/adapters/node-http';
 
-import { decorateHttpResponse } from './fetchCompat';
+import { decorateHttpResponse, uWsSendResponseStreamed2 } from './fetchCompat';
 import {
   uWsToRequest,
   uWsSendResponse,
@@ -57,22 +57,13 @@ export async function uWsRequestHandler<
 
   const resDecorated = decorateHttpResponse(opts.res);
 
-  // const incomingMessage: UniversalIncomingMessage = opts.req.raw;
-
-  const req = uWsToRequest(opts.req, resDecorated, {
+  const fetchReq = uWsToRequest(opts.req, resDecorated, {
     maxBodySize: null, // TODO
   });
-  // // monkey-path body to the IncomingMessage
-  // if ('body' in opts.req) {
-  //   incomingMessage.body = opts.req.body;
-  // }
-  // const req = incomingMessageToRequest(incomingMessage, opts.res.raw, {
-  //   maxBodySize: null,
-  // });
 
-  const res = await resolveResponse({
+  const fetchRes = await resolveResponse({
     ...opts,
-    req,
+    req: fetchReq,
     error: null,
     createContext,
     onError(o) {
@@ -84,7 +75,8 @@ export async function uWsRequestHandler<
   });
 
   // await uWsSendResponse(resDecorated, res);
-  await uWsSendResponseStreamed(resDecorated, res);
+  // await uWsSendResponseStreamed(resDecorated, fetchRes);
+  await uWsSendResponseStreamed2(fetchReq, fetchRes, resDecorated);
 }
 
 // import { getPostBody } from './utils';

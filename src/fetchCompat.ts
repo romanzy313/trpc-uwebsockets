@@ -1,5 +1,6 @@
 import { HttpResponse, HttpRequest } from 'uWebSockets.js';
 import { TRPCError } from '@trpc/server';
+import { isAbortError } from '@trpc/server/unstable-core-do-not-import';
 
 // this implements uWs compatibility with fetch api as its needed for v11 of trpc
 // mostly following /trpc/packages/server/src/adapters/node-http/incomingMessageToRequest.ts
@@ -261,19 +262,144 @@ export async function uWsSendResponseStreamed(
   if (fetchRes.body) {
     const reader = fetchRes.body.getReader();
 
+    // these are for debugging purposes
+    let chunkCount = 0;
+    let totalSent = 0;
+
     while (true) {
       const { value, done } = await reader.read();
 
-      console.log('got chunk with value', value, 'done', done);
+      console.log(
+        'uWsSendResponseStreamed: got chunk with value',
+        value,
+        'done',
+        done
+      );
       if (done) {
+        console.log(
+          'uWsSendResponseStreamed: finished sending',
+          value,
+          'done',
+          done
+        );
         res.end();
         return;
       }
-      res.write(value);
+      chunkCount++;
+      // FIXME: this is actually very wasteful to send many small streamed respones
+      // should they be grouped to some larger buffer/timeout?
+      res.cork(() => {
+        const noBackPressure = res.write(value);
+        totalSent += value.byteLength;
+        if (!noBackPressure) {
+          console.error(
+            'uWsSendResponseStreamed: BACKPRESSURE DETECTED',
+            'chunkCount',
+            chunkCount,
+            'totalSentWithoutBackpressure',
+            totalSent,
+            'thisChunkLen',
+            value.byteLength
+          );
+        }
+      });
     }
   } else {
-    console.warn('UNEXPECTED: fetch body is empty!');
     res.end();
     return;
+  }
+}
+
+// using
+// packages/server/src/adapters/node-http/writeResponse.ts
+export async function uWsSendResponseStreamed2(
+  fetchReq: Request, // this is needed for the abort signal
+  fetchRes: Response,
+  res: HttpResponseDecorated
+): Promise<void> {
+  // TODO: is this sifficient?
+  if (res.aborted) return;
+
+  res.onAborted(() => {
+    console.log(
+      'uWsSendResponseStreamed2: onAbort triggered',
+      'res.aboorted status already',
+      res.aborted
+    );
+    res.aborted = true;
+  });
+
+  res.cork(() => {
+    res.writeStatus(fetchRes.status.toString());
+    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
+
+    fetchRes.headers.forEach((value, key) => {
+      res.writeHeader(key, value);
+    });
+  });
+
+  // https://stackoverflow.com/questions/62121310/how-to-handle-streaming-data-using-fetch
+  if (fetchRes.body) {
+    // these are for debugging purposes
+    let chunkCount = 0;
+    let totalSent = 0;
+
+    try {
+      const writeableStream = new WritableStream({
+        // TODO check types
+        async write(chunk: Uint8Array) {
+          console.log(
+            'uWsSendResponseStreamed2: got chunk with value',
+            chunk,
+            'len',
+            chunk.length
+          );
+
+          if (res.aborted) {
+            console.error(
+              'uWsSendResponseStreamed2: aborted before writing chunk'
+            );
+            return;
+          }
+
+          res.cork(() => {
+            chunkCount++;
+            const noBackPressure = res.write(chunk);
+            totalSent += chunk.byteLength;
+            if (!noBackPressure) {
+              console.error(
+                'uWsSendResponseStreamed2: BACKPRESSURE DETECTED',
+                'chunkCount',
+                chunkCount,
+                'totalSentWithoutBackpressure',
+                totalSent,
+                'thisChunkLen',
+                chunk.byteLength
+              );
+            }
+          });
+        },
+      });
+
+      await fetchRes.body.pipeTo(writeableStream, {
+        signal: fetchReq.signal,
+      });
+    } catch (err) {
+      if (isAbortError(err)) {
+        console.error('uWsSendResponseStreamed2: abort error encountered'); // so that eslint donest complain
+
+        return;
+      }
+      console.error('uWsSendResponseStreamed2: streamed response 2 error', err); // so that eslint donest complain
+      throw err;
+    } finally {
+      if (!res.aborted) {
+        res.end();
+      } else {
+        console.error('uWsSendResponseStreamed2: aborted before writing chunk');
+      }
+    }
+  } else {
+    res.end();
   }
 }

@@ -265,7 +265,7 @@ function createClientSSE(opts: ClientOptions) {
   const host = `localhost:${opts.port}${config.prefix}`;
   const client = createTRPCClient<AppRouter>({
     links: [
-      // loggerLink(),
+      loggerLink(),
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
         // ponyfill EventSource
@@ -273,7 +273,25 @@ function createClientSSE(opts: ClientOptions) {
       }),
     ],
   });
-
+  // const client = createTRPCClient<AppRouter>({
+  //   links: [
+  //     linkSpy,
+  //     splitLink({
+  //       condition(op) {
+  //         return op.type === 'subscription';
+  //       },
+  //       true: unstable_httpSubscriptionLink({
+  //         url: `http://${host}`,
+  //         // ponyfill EventSource
+  //         EventSource: EventSourcePolyfill,
+  //       }),
+  //       false: unstable_httpBatchStreamLink({
+  //         url: `http://${host}`,
+  //         headers: opts.headers,
+  //       }),
+  //     }),
+  //   ],
+  // });
   return { client };
 }
 
@@ -547,8 +565,6 @@ describe('anonymous user', () => {
         ],
       ]
     `);
-
-    // throw new Error('is this working???');
 
     sub.unsubscribe();
 
