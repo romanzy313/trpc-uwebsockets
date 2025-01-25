@@ -249,11 +249,21 @@ export async function uWsSendResponseStreamed(
   // TODO: is this sifficient?
   if (res.aborted) return;
 
+  res.onAborted(() => {
+    console.log(
+      'uWsSendResponseStreamed: onAbort triggered',
+      'res.aboorted status already',
+      res.aborted
+    );
+    res.aborted = true;
+  });
+
   res.cork(() => {
     res.writeStatus(fetchRes.status.toString());
     // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
 
     fetchRes.headers.forEach((value, key) => {
+      console.log('uWsSendResponseStreamed: writing header', key, '=', value);
       res.writeHeader(key, value);
     });
   });
@@ -282,13 +292,24 @@ export async function uWsSendResponseStreamed(
           'done',
           done
         );
-        res.end();
+        if (!res.aborted) {
+          res.end();
+        }
         return;
       }
-      chunkCount++;
       // FIXME: this is actually very wasteful to send many small streamed respones
       // should they be grouped to some larger buffer/timeout?
+      if (res.aborted) {
+        console.log(
+          'uWsSendResponseStreamed: abort before corking response',
+          value,
+          'done',
+          done
+        );
+        return;
+      }
       res.cork(() => {
+        chunkCount++;
         const noBackPressure = res.write(value);
         totalSent += value.byteLength;
         if (!noBackPressure) {

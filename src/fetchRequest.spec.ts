@@ -172,7 +172,6 @@ test.sequential('POST with body and maxBodySize', async () => {
   server.close();
 });
 
-// TODO: fix http://localhost:53689/?undefined when no query is used!
 test.sequential('retains url and search params', async () => {
   const server = createServer({ maxBodySize: null });
 
@@ -210,7 +209,7 @@ test.sequential('retains url and search params', async () => {
 });
 
 // testing aborts without mocks...is painful...
-
+// TODO: recreate the slow request in a same way as is done with slow response
 test.sequential('aborted requests are handled', async () => {
   expect.assertions(1);
 

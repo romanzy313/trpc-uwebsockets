@@ -136,14 +136,22 @@ function createServer(opts: { maxBodySize: number | null }) {
     const count = parseInt(req.getParameter('count')!);
     const sleepMs = parseInt(req.getParameter('sleepMs')!);
 
-    let stop = false;
     const stream = new ReadableStream({
-      async start(controller) {
-        for (let i = 0; i < count && !stop; i++) {
-          controller.enqueue('0'.repeat(10));
-          await sleep(sleepMs);
-        }
-        controller.close();
+      start(controller) {
+        let i = 0;
+        const enqueueChunk = () => {
+          if (i < count) {
+            console.log('loop i', i, 'count', count, 'sleepMs', sleepMs);
+            controller.enqueue('A'.repeat(10));
+            i++;
+            setTimeout(enqueueChunk, sleepMs);
+          } else {
+            console.log('loop closing!', 'count', count);
+            controller.close();
+          }
+        };
+
+        enqueueChunk();
       },
       cancel() {
         console.log('SLOW RESPONSE cancel() was called');
@@ -313,21 +321,21 @@ describe('response', () => {
     const count = 5;
     const sleepMs = 20;
 
-    // aborted after 40...
-    // const finalLen = count * 2;
-
     const controller = new AbortController();
 
     try {
-      // send abort in between 2 and 3
-      setTimeout(() => {
-        controller.abort();
-      }, 60);
-      await server.fetch({
+      const res = await server.fetch({
         path: `/slow/${count}/${sleepMs}`,
         method: 'GET',
         signal: controller.signal,
       });
+      setTimeout(() => {
+        controller.abort();
+      }, 40);
+
+      // important to actually listen for the body
+      // if this is missing then the test is over and AbortError is not triggered
+      await res.text();
     } catch (err: any) {
       expect(err.name).toBe('AbortError');
     }
@@ -343,11 +351,12 @@ describe('response', () => {
     controller.abort(); // start with aborted signal already
 
     try {
-      await server.fetch({
+      const res = await server.fetch({
         path: `/large/${size}`,
         method: 'GET',
         signal: controller.signal,
       });
+      await res.text();
     } catch (err: any) {
       expect(err.name).toBe('AbortError');
     }
@@ -365,14 +374,15 @@ describe('response', () => {
     controller.abort(); // start with aborted signal already
 
     try {
-      setTimeout(() => {
-        controller.abort(); // start with aborted signal already
-      }, 5);
-      await server.fetch({
+      const res = await server.fetch({
         path: `/large/${size}`,
         method: 'GET',
         signal: controller.signal,
       });
+      setTimeout(() => {
+        controller.abort(); // start with aborted signal already
+      }, 5);
+      await res.text();
     } catch (err: any) {
       expect(err.name).toBe('AbortError');
     }
