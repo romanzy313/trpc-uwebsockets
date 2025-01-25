@@ -279,12 +279,6 @@ export async function uWsSendResponseStreamed(
     while (true) {
       const { value, done } = await reader.read();
 
-      console.log(
-        'uWsSendResponseStreamed: got chunk with value',
-        value,
-        'done',
-        done
-      );
       if (done) {
         console.log(
           'uWsSendResponseStreamed: finished sending',
@@ -297,6 +291,14 @@ export async function uWsSendResponseStreamed(
         }
         return;
       }
+
+      console.log(
+        'uWsSendResponseStreamed: got chunk with len',
+        value.length,
+        'done',
+        done
+      );
+
       // FIXME: this is actually very wasteful to send many small streamed respones
       // should they be grouped to some larger buffer/timeout?
       if (res.aborted) {
@@ -378,7 +380,8 @@ export async function uWsSendResponseStreamed2(
 
           if (res.aborted) {
             console.error(
-              'uWsSendResponseStreamed2: aborted before writing chunk'
+              'uWsSendResponseStreamed2: aborted before writing chunk',
+              chunk
             );
             return;
           }
@@ -422,5 +425,136 @@ export async function uWsSendResponseStreamed2(
     }
   } else {
     res.end();
+  }
+}
+
+// using
+// packages/server/src/adapters/node-http/writeResponse.ts and
+// https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
+export async function uWsSendResponseStreamed3(
+  fetchReq: Request,
+  fetchRes: Response,
+  res: HttpResponseDecorated
+): Promise<void> {
+  const maxChunkSize = 1000;
+
+  if (res.aborted) return;
+  res.cork(() => {
+    res.writeStatus(fetchRes.status.toString());
+
+    fetchRes.headers.forEach((value, key) => {
+      res.writeHeader(key, value);
+    });
+  });
+
+  if (!fetchRes.body) {
+    res.endWithoutBody();
+    return;
+  }
+
+  const reader = fetchRes.body.getReader();
+
+  let requestFinished = false;
+  const onAbortedOrFinishedResponse = () => {
+    // close the fetchRes? is this needed?
+    // fetchRes.
+    //
+    // do nothing?
+    console.log('uWsSendResponseStreamed3: response was aborted or finished');
+    requestFinished = true;
+
+    // TODO: check me
+    if (!res.aborted) {
+      res.end();
+    }
+  };
+
+  // for debug purposes
+  let chunkCount = 0;
+  let totalSent = 0;
+
+  res.onAborted(() => {
+    // this must send the reader an abort signal, to stop reading things
+    // when client says that they dont want to recieve data anymore, who gets it first
+    // the fetchReq.signal.aborted or the res.onAborted?
+    // the res.onAborted triggers the signal abortion, but is it instantaneous
+    // also the writer should stop as abortion signal is propogated though
+    console.log(
+      'uWsSendResponseStreamed3: onAborted was triggered. res.aborted',
+      res.aborted,
+      'request.signal.aborted',
+      fetchReq.signal.aborted
+    );
+    res.aborted = true;
+    onAbortedOrFinishedResponse();
+  });
+
+  while (!requestFinished) {
+    // maybe try with promise API?
+    const { value, done } = await reader.read();
+
+    if (done) {
+      if (value !== undefined) {
+        // TODO: remove me in prod
+        throw new Error('invalid state, assertion of value/done failed');
+      }
+      console.log('uWsSendResponseStreamed3: request was finished');
+
+      return onAbortedOrFinishedResponse();
+    }
+
+    console.log(
+      'uWsSendResponseStreamed3: got chunk with len',
+      value.length,
+      'done',
+      done
+    );
+
+    // TODO: split into chunks if needed?
+    // for now just pass the full chunk
+    chunkCount++;
+    totalSent += value.byteLength;
+    if (res.aborted) {
+      return;
+    }
+    const ok = res.write(value);
+
+    if (!ok) {
+      console.error(
+        'uWsSendResponseStreamed3: BACKPRESSURE DETECTED',
+        'chunkCount',
+        chunkCount,
+        'totalSentWithoutBackpressure',
+        totalSent,
+        'thisChunkLen',
+        value.byteLength
+      );
+
+      res.onWritable((offset) => {
+        chunkCount++;
+        console.log(
+          'on writeable event with offset',
+          offset,
+          'current chunk',
+          chunkCount,
+          'with value len',
+          value.byteLength,
+          'offset',
+          value.byteOffset
+        );
+        const ok = res.write(value);
+
+        if (!ok) {
+          console.log(
+            'Backpressure was creating by wiring ',
+            value.byteLength,
+            'current chunk',
+            chunkCount
+          );
+        }
+
+        return ok;
+      });
+    }
   }
 }

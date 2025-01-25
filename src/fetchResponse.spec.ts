@@ -17,8 +17,8 @@ import {
   uWsSendResponse,
   uWsSendResponseStreamed,
   uWsSendResponseStreamed2,
+  uWsSendResponseStreamed3,
 } from './fetchCompat';
-import { WritableStream } from 'stream/web';
 
 function createServer(opts: { maxBodySize: number | null }) {
   const app = uWs.App();
@@ -123,16 +123,16 @@ function createServer(opts: { maxBodySize: number | null }) {
       status: 200,
     });
 
-    await uWsSendResponseStreamed2(fetchReq, fetchRes, resDecorated);
+    await uWsSendResponseStreamed3(fetchReq, fetchRes, resDecorated);
   });
 
-  app.get('/slow/:count/:sleepMs', async (res, req) => {
+  app.get('/slow/:size/:count/:sleepMs', async (res, req) => {
     const resDecorated = decorateHttpResponse(res);
 
     res.onAborted(() => {
       resDecorated.aborted = true;
     });
-
+    const size = parseInt(req.getParameter('size')!);
     const count = parseInt(req.getParameter('count')!);
     const sleepMs = parseInt(req.getParameter('sleepMs')!);
 
@@ -141,12 +141,12 @@ function createServer(opts: { maxBodySize: number | null }) {
         let i = 0;
         const enqueueChunk = () => {
           if (i < count) {
-            console.log('loop i', i, 'count', count, 'sleepMs', sleepMs);
-            controller.enqueue('A'.repeat(10));
+            // console.log('loop i', i, 'count', count, 'sleepMs', sleepMs);
+            controller.enqueue('A'.repeat(size));
             i++;
             setTimeout(enqueueChunk, sleepMs);
           } else {
-            console.log('loop closing!', 'count', count);
+            // console.log('loop closing!', 'count', count);
             controller.close();
           }
         };
@@ -165,6 +165,53 @@ function createServer(opts: { maxBodySize: number | null }) {
     });
 
     await uWsSendResponseStreamed(resDecorated, fetchRes);
+  });
+
+  app.get('/slow2/:size/:count/:sleepMs', async (res, req) => {
+    const resDecorated = decorateHttpResponse(res);
+
+    const size = parseInt(req.getParameter('size')!);
+    const count = parseInt(req.getParameter('count')!);
+    const sleepMs = parseInt(req.getParameter('sleepMs')!);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        let i = 0;
+        const enqueueChunk = () => {
+          if (i < count) {
+            // console.log('loop i', i, 'count', count, 'sleepMs', sleepMs);
+            controller.enqueue('A'.repeat(size));
+            i++;
+            setTimeout(enqueueChunk, sleepMs);
+
+            // TODO: test terminations too
+            // if (i == 3) {
+            //   res.close(); // hmmm
+            // }
+          } else {
+            // console.log('loop closing!', 'count', count);
+            controller.close();
+          }
+        };
+
+        enqueueChunk();
+      },
+      cancel() {
+        console.log('SLOW RESPONSE cancel() was called');
+        console.log('doing nothing for now');
+        // stop = true;
+      },
+    });
+    const fetchReq = uWsToRequest(req, resDecorated, { maxBodySize: null });
+
+    // test with res.close?
+    // res.close()
+
+    const fetchRes = new Response(stream, {
+      status: 200,
+    });
+
+    await uWsSendResponseStreamed3(fetchReq, fetchRes, resDecorated);
   });
 
   let socket: uWs.us_listen_socket | false | null = null;
@@ -252,21 +299,20 @@ describe('response', () => {
 
   test.sequential('large streamed 1', async () => {
     const server = createServer({ maxBodySize: null });
-    const size = 2 ** 24;
-
-    const controller = new AbortController();
-    controller.abort(); // start with aborted signal already
+    const size = 2 ** 25;
+    const count = 10;
+    const timeMs = 0;
 
     console.time('large streamed');
 
     const res = await server.fetch({
-      path: `/large/${size}`,
+      path: `/slow/${size}/${count}/${timeMs}`,
       method: 'GET',
     });
 
     expect(res.ok).toBe(true);
     expect(res.status).toBe(200);
-    expect((await res.text()).length).toBe(size);
+    expect((await res.text()).length).toBe(size * count);
 
     console.timeEnd('large streamed');
 
@@ -274,21 +320,20 @@ describe('response', () => {
   });
   test.sequential('large streamed 2', async () => {
     const server = createServer({ maxBodySize: null });
-    const size = 2 ** 24;
-
-    const controller = new AbortController();
-    controller.abort(); // start with aborted signal already
+    const size = 2 ** 25;
+    const count = 10;
+    const timeMs = 0;
 
     console.time('large streamed 2');
 
     const res = await server.fetch({
-      path: `/large2/${size}`,
+      path: `/slow2/${size}/${count}/${timeMs}`,
       method: 'GET',
     });
 
     expect(res.ok).toBe(true);
     expect(res.status).toBe(200);
-    expect((await res.text()).length).toBe(size);
+    expect((await res.text()).length).toBe(size * count);
 
     console.timeEnd('large streamed 2');
 
@@ -298,19 +343,35 @@ describe('response', () => {
   test.sequential('slow streamed', async () => {
     const server = createServer({ maxBodySize: null });
 
+    const size = 10;
     const count = 5;
     const sleepMs = 20;
 
-    const finalLen = count * 10;
-
     const res = await server.fetch({
-      path: `/slow/${count}/${sleepMs}`,
+      path: `/slow/${size}/${count}/${sleepMs}`,
       method: 'GET',
     });
 
     expect(res.ok).toBe(true);
     expect(res.status).toBe(200);
-    expect((await res.text()).length).toBe(finalLen);
+    expect((await res.text()).length).toBe(size * count);
+  });
+
+  test.sequential('slow streamed 2', async () => {
+    const server = createServer({ maxBodySize: null });
+
+    const size = 10;
+    const count = 5;
+    const sleepMs = 20;
+
+    const res = await server.fetch({
+      path: `/slow2/${size}/${count}/${sleepMs}`,
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect((await res.text()).length).toBe(size * count);
   });
 
   test.sequential('slow aborted', async () => {
@@ -326,6 +387,34 @@ describe('response', () => {
     try {
       const res = await server.fetch({
         path: `/slow/${count}/${sleepMs}`,
+        method: 'GET',
+        signal: controller.signal,
+      });
+      setTimeout(() => {
+        controller.abort();
+      }, 40);
+
+      // important to actually listen for the body
+      // if this is missing then the test is over and AbortError is not triggered
+      await res.text();
+    } catch (err: any) {
+      expect(err.name).toBe('AbortError');
+    }
+  });
+
+  test.sequential('slow aborted 2', async () => {
+    expect.assertions(1);
+
+    const server = createServer({ maxBodySize: null });
+
+    const count = 5;
+    const sleepMs = 20;
+
+    const controller = new AbortController();
+
+    try {
+      const res = await server.fetch({
+        path: `/slow2/${count}/${sleepMs}`,
         method: 'GET',
         signal: controller.signal,
       });
@@ -390,20 +479,3 @@ describe('response', () => {
     await server.close();
   });
 });
-
-// test.sequential('megatest', async () => {
-//   const server = createServer({ maxBodySize: null });
-//   const res = await server.fetch({
-//     method: 'POST',
-//     body: JSON.stringify({
-//       body: 'hello world',
-//       status: 200,
-//       statusText: '200 OK',
-//       headers: [{ name: 'name', value: 'value' }],
-//     }),
-//   });
-
-//   expect(res.ok).toBe(true);
-
-//   await server.close();
-// });
