@@ -212,9 +212,9 @@ test.sequential('retains url and search params', async () => {
 // testing aborts without mocks...is painful...
 
 test.sequential('aborted requests are handled', async () => {
-  const server = createServer({ maxBodySize: null });
-
   expect.assertions(1);
+
+  const server = createServer({ maxBodySize: null });
 
   const body = '0'.repeat(2 ** 7);
   const controller = new AbortController();
@@ -245,9 +245,9 @@ test.sequential(
   'aborted requests in flight are handled',
   { retry: 3 },
   async () => {
-    const server = createServer({ maxBodySize: null });
-
     expect.assertions(1);
+
+    const server = createServer({ maxBodySize: null });
 
     const body = '0'.repeat(2 ** 24);
     const controller = new AbortController();

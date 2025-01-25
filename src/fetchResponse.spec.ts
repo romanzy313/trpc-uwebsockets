@@ -62,6 +62,29 @@ function createServer(opts: { maxBodySize: number | null }) {
     await uWsSendResponseStreamed(resDecorated, resFetch);
   });
 
+  app.get('/large/:size', async (res, _req) => {
+    const resDecorated = decorateHttpResponse(res);
+
+    res.onAborted(() => {
+      resDecorated.aborted = true;
+    });
+
+    const size = parseInt(_req.getParameter('size')!);
+    const body = '0'.repeat(size);
+
+    // const resInit: ResponseInit = {
+    //   status: 200,
+    // };
+
+    // const headers = new Headers();
+
+    const resFetch = new Response(body, {
+      status: 200,
+    });
+
+    await uWsSendResponseStreamed(resDecorated, resFetch);
+  });
+
   let socket: uWs.us_listen_socket | false | null = null;
 
   app.listen('0.0.0.0', 0, (token) => {
@@ -127,6 +150,76 @@ describe('response', () => {
     expect(res.headers.get('set-cookie')).toBe('one=1, two=2');
 
     expect(res.headers.get('transfer-encoding')).toBe('chunked');
+
+    await server.close();
+  });
+
+  test.sequential('large streamed', async () => {
+    const server = createServer({ maxBodySize: null });
+    const size = 2 ** 24;
+
+    const controller = new AbortController();
+    controller.abort(); // start with aborted signal already
+
+    console.time('large streamed');
+
+    const res = await server.fetch({
+      path: `/large/${size}`,
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect((await res.text()).length).toBe(size);
+
+    console.timeEnd('large streamed');
+
+    await server.close();
+  });
+
+  test.sequential('aborted request', async () => {
+    expect.assertions(1);
+
+    const server = createServer({ maxBodySize: null });
+
+    const size = 2 ** 22;
+    const controller = new AbortController();
+    controller.abort(); // start with aborted signal already
+
+    try {
+      await server.fetch({
+        path: `/large/${size}`,
+        method: 'GET',
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      expect(err.name).toBe('AbortError');
+    }
+
+    await server.close();
+  });
+
+  test.sequential('aborted request in flight', async () => {
+    expect.assertions(1);
+
+    const server = createServer({ maxBodySize: null });
+
+    const size = 2 ** 24;
+    const controller = new AbortController();
+    controller.abort(); // start with aborted signal already
+
+    try {
+      setTimeout(() => {
+        controller.abort(); // start with aborted signal already
+      }, 5);
+      await server.fetch({
+        path: `/large/${size}`,
+        method: 'GET',
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      expect(err.name).toBe('AbortError');
+    }
 
     await server.close();
   });
