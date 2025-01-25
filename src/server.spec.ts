@@ -15,6 +15,7 @@ import {
   httpBatchLink,
   splitLink,
   unstable_httpBatchStreamLink,
+  unstable_httpSubscriptionLink,
   wsLink,
 } from '@trpc/client';
 import type { HTTPHeaders, TRPCLink } from '@trpc/client';
@@ -221,7 +222,9 @@ interface ClientOptions {
   port: number;
 }
 
-function createClient(opts: ClientOptions) {
+type ClientType = 'batchStreamWs' | 'batch' | 'sse';
+
+function createClientBatchStreamWs(opts: ClientOptions) {
   const host = `localhost:${opts.port}${config.prefix}`;
   const wsClient = createWSClient({ url: `ws://${host}` });
   const client = createTRPCClient<AppRouter>({
@@ -232,13 +235,6 @@ function createClient(opts: ClientOptions) {
           return op.type === 'subscription';
         },
         true: wsLink({ client: wsClient }),
-        // false: httpBatchLink({
-        //   url: `http://${host}`,
-        //   headers: opts.headers,
-        // }),
-        // TODO: make unstable_httpBatchStreamLink work instead
-        // without proper streaming the following error is returned:
-        // HTTPParserError: Response does not match the HTTP/1.1 protocol (Content-Length can't be present with Transfer-Encoding)
         false: unstable_httpBatchStreamLink({
           url: `http://${host}`,
           headers: opts.headers,
@@ -250,14 +246,27 @@ function createClient(opts: ClientOptions) {
   return { client, wsClient };
 }
 
-function createBatchClient(opts: ClientOptions) {
+function createClientBatch(opts: ClientOptions) {
   const host = `localhost:${opts.port}${config.prefix}`;
   const client = createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
         url: `http://${host}`,
         headers: opts.headers,
-        fetch: fetch as any,
+      }),
+    ],
+  });
+
+  return { client };
+}
+
+function createClientSSE(opts: ClientOptions) {
+  const host = `localhost:${opts.port}${config.prefix}`;
+  const client = createTRPCClient<AppRouter>({
+    links: [
+      unstable_httpSubscriptionLink({
+        url: `http://${host}`,
+        // headers: opts.headers,
       }),
     ],
   });
@@ -277,14 +286,31 @@ async function createApp(opts: AppOptions = {}) {
     appRouter,
   });
 
-  // const url = new URL(`localhost:${port}`); // why is this here?
-
-  const { client } = createClient({ ...opts.clientOptions, port });
-
   return {
     server: instance,
     stop,
-    client,
+    // client: clientBatchStreamWs,
+    getClient(clientType: ClientType) {
+      switch (clientType) {
+        case 'batchStreamWs':
+          return createClientBatchStreamWs({
+            ...opts.clientOptions,
+            port,
+          }).client;
+        case 'batch':
+          return createClientBatch({
+            ...opts.clientOptions,
+            port,
+          }).client;
+        case 'sse':
+          return createClientSSE({
+            ...opts.clientOptions,
+            port,
+          }).client;
+        default:
+          throw new Error('unknown client');
+      }
+    },
     ee,
     port,
     // url,
@@ -340,39 +366,61 @@ describe('anonymous user', () => {
   //   `);
   // });
 
-  test('query', async () => {
-    expect(await app.client.ping.query()).toMatchInlineSnapshot(`"pong"`);
-    expect(await app.client.hello.query()).toMatchInlineSnapshot(`
+  // Big L Error: InlineSnapshot cannot be used inside of test.each or describe.each
+  test.each<ClientType>(['batchStreamWs'])(
+    'query - %name',
+    async (clientType) => {
+      const client = app.getClient(clientType);
+      expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
+      expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
             "text": "hello anonymous",
           }
       `);
-    expect(
-      await app.client.hello.query({
-        username: 'test',
-      })
-    ).toMatchInlineSnapshot(`
+      expect(
+        await client.hello.query({
+          username: 'test',
+        })
+      ).toMatchInlineSnapshot(`
           Object {
             "text": "hello test",
           }
       `);
-  });
+    }
+  );
 
-  test('mutation', async () => {
-    expect(
-      await app.client.editPost.mutate({
-        id: '42',
-        data: { title: 'new_title', text: 'new_text' },
-      })
-    ).toMatchInlineSnapshot(`
-      Object {
-        "error": "Unauthorized user",
-      }
-    `);
-  });
+  test.each<ClientType>(['batchStreamWs'])(
+    'mutation - %name',
+    async (clientType) => {
+      const client = app.getClient(clientType);
+      expect(
+        await client.editPost.mutate({
+          id: '42',
+          data: { title: 'new_title', text: 'new_text' },
+        })
+      ).toMatchInlineSnapshot(`
+        Object {
+          "error": "Unauthorized user",
+        }
+      `);
+    }
+  );
+
+  // test('mutation', async () => {
+  //   expect(
+  //     await app.client.editPost.mutate({
+  //       id: '42',
+  //       data: { title: 'new_title', text: 'new_text' },
+  //     })
+  //   ).toMatchInlineSnapshot(`
+  //     Object {
+  //       "error": "Unauthorized user",
+  //     }
+  //   `);
+  // });
 
   test('batched requests in body work correctly', async () => {
-    const { client } = createBatchClient({
+    const { client } = createClientBatch({
       ...app.opts.clientOptions,
       port: app.port,
     });
@@ -472,10 +520,11 @@ describe('anonymous user', () => {
   });
 
   test('streaming', async () => {
+    const client = app.getClient('batchStreamWs');
     const results = await Promise.all([
-      app.client.deferred.query({ wait: 3 }),
-      app.client.deferred.query({ wait: 1 }),
-      app.client.deferred.query({ wait: 2 }),
+      client.deferred.query({ wait: 3 }),
+      client.deferred.query({ wait: 1 }),
+      client.deferred.query({ wait: 2 }),
     ]);
     expect(results).toEqual([3, 1, 2]);
     expect(orderedResults).toEqual([1, 2, 3]);
