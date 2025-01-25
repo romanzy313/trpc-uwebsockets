@@ -163,6 +163,12 @@ function createServer(opts: ServerOptions) {
   instance.post('/hello', async (res, req) => {
     res.end(JSON.stringify({ hello: 'POST', body: 'TODO, why?' }));
   });
+
+  instance.any('/*', (res, req) => {
+    res.writeStatus('404 NOT FOUND');
+    res.end();
+  });
+
   let socket: uWs.us_listen_socket | false | null = null;
 
   instance.listen('0.0.0.0', 0, (token) => {
@@ -226,17 +232,17 @@ function createClient(opts: ClientOptions) {
           return op.type === 'subscription';
         },
         true: wsLink({ client: wsClient }),
-        false: httpBatchLink({
-          url: `http://${host}`,
-          headers: opts.headers,
-        }),
-        // TODO: make unstable_httpBatchStreamLink work instead
-        // without proper streaming the following error is returned:
-        // HTTPParserError: Response does not match the HTTP/1.1 protocol (Content-Length can't be present with Transfer-Encoding)
-        // false: unstable_httpBatchStreamLink({
+        // false: httpBatchLink({
         //   url: `http://${host}`,
         //   headers: opts.headers,
         // }),
+        // TODO: make unstable_httpBatchStreamLink work instead
+        // without proper streaming the following error is returned:
+        // HTTPParserError: Response does not match the HTTP/1.1 protocol (Content-Length can't be present with Transfer-Encoding)
+        false: unstable_httpBatchStreamLink({
+          url: `http://${host}`,
+          headers: opts.headers,
+        }),
       }),
     ],
   });
@@ -465,7 +471,7 @@ describe('anonymous user', () => {
     });
   });
 
-  test.skip('streaming', async () => {
+  test('streaming', async () => {
     const results = await Promise.all([
       app.client.deferred.query({ wait: 3 }),
       app.client.deferred.query({ wait: 1 }),

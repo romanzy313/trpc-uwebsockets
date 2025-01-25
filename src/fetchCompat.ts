@@ -239,3 +239,41 @@ export async function uWsSendResponse(
     res.end(unsteamed_text);
   });
 }
+
+// TODO: use the tryEnd instead to deal with potential backpressure
+export async function uWsSendResponseStreamed(
+  res: HttpResponseDecorated,
+  fetchRes: Response
+): Promise<void> {
+  // TODO: is this sifficient?
+  if (res.aborted) return;
+
+  res.cork(() => {
+    res.writeStatus(fetchRes.status.toString());
+    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
+
+    fetchRes.headers.forEach((value, key) => {
+      res.writeHeader(key, value);
+    });
+  });
+
+  // https://stackoverflow.com/questions/62121310/how-to-handle-streaming-data-using-fetch
+  if (fetchRes.body) {
+    const reader = fetchRes.body.getReader();
+
+    while (true) {
+      const { value, done } = await reader.read();
+
+      console.log('got chunk with value', value, 'done', done);
+      if (done) {
+        res.end();
+        return;
+      }
+      res.write(value);
+    }
+  } else {
+    console.warn('UNEXPECTED: fetch body is empty!');
+    res.end();
+    return;
+  }
+}

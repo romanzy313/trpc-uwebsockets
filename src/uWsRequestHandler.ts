@@ -18,7 +18,11 @@ import {
 } from '@trpc/server/adapters/node-http';
 
 import { decorateHttpResponse } from './fetchCompat';
-import { uWsToRequest, uWsSendResponse } from './fetchCompat';
+import {
+  uWsToRequest,
+  uWsSendResponse,
+  uWsSendResponseStreamed,
+} from './fetchCompat';
 
 export type UWsHandlerOptions<
   TRouter extends AnyRouter,
@@ -79,7 +83,8 @@ export async function uWsRequestHandler<
     },
   });
 
-  await uWsSendResponse(resDecorated, res);
+  // await uWsSendResponse(resDecorated, res);
+  await uWsSendResponseStreamed(resDecorated, res);
 }
 
 // import { getPostBody } from './utils';
