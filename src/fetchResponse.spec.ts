@@ -18,6 +18,7 @@ import {
   uWsSendResponseStreamed,
   uWsSendResponseStreamed2,
 } from './fetchCompat';
+import { WritableStream } from 'stream/web';
 
 function createServer(opts: { maxBodySize: number | null }) {
   const app = uWs.App();
@@ -68,13 +69,13 @@ function createServer(opts: { maxBodySize: number | null }) {
     headers.append('set-cookie', 'one=1');
     headers.append('set-cookie', 'two=2');
 
-    const resFetch = new Response('hello world', {
+    const fetchRes = new Response('hello world', {
       status: 200,
       statusText: '200 OK',
       headers: headers,
     });
 
-    await uWsSendResponseStreamed(resDecorated, resFetch);
+    await uWsSendResponseStreamed(resDecorated, fetchRes);
   });
 
   app.get('/large/:size', async (res, _req) => {
@@ -117,12 +118,47 @@ function createServer(opts: { maxBodySize: number | null }) {
 
     const fetchReq = uWsToRequest(req, resDecorated, { maxBodySize: null });
     // TODO: readable stream can be passed to the body
+    //
     const fetchRes = new Response(body, {
       status: 200,
     });
 
     await uWsSendResponseStreamed2(fetchReq, fetchRes, resDecorated);
   });
+
+  app.get('/slow/:count/:sleepMs', async (res, req) => {
+    const resDecorated = decorateHttpResponse(res);
+
+    res.onAborted(() => {
+      resDecorated.aborted = true;
+    });
+
+    const count = parseInt(req.getParameter('count')!);
+    const sleepMs = parseInt(req.getParameter('sleepMs')!);
+
+    let stop = false;
+    const stream = new ReadableStream({
+      async start(controller) {
+        for (let i = 0; i < count && !stop; i++) {
+          controller.enqueue('0'.repeat(10));
+          await sleep(sleepMs);
+        }
+        controller.close();
+      },
+      cancel() {
+        console.log('SLOW RESPONSE cancel() was called');
+        console.log('doing nothing for now');
+        // stop = true;
+      },
+    });
+
+    const fetchRes = new Response(stream, {
+      status: 200,
+    });
+
+    await uWsSendResponseStreamed(resDecorated, fetchRes);
+  });
+
   let socket: uWs.us_listen_socket | false | null = null;
 
   app.listen('0.0.0.0', 0, (token) => {
@@ -250,6 +286,53 @@ describe('response', () => {
 
     await server.close();
   });
+
+  test.sequential('slow streamed', async () => {
+    const server = createServer({ maxBodySize: null });
+
+    const count = 5;
+    const sleepMs = 20;
+
+    const finalLen = count * 10;
+
+    const res = await server.fetch({
+      path: `/slow/${count}/${sleepMs}`,
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect((await res.text()).length).toBe(finalLen);
+  });
+
+  test.sequential('slow aborted', async () => {
+    expect.assertions(1);
+
+    const server = createServer({ maxBodySize: null });
+
+    const count = 5;
+    const sleepMs = 20;
+
+    // aborted after 40...
+    // const finalLen = count * 2;
+
+    const controller = new AbortController();
+
+    try {
+      // send abort in between 2 and 3
+      setTimeout(() => {
+        controller.abort();
+      }, 60);
+      await server.fetch({
+        path: `/slow/${count}/${sleepMs}`,
+        method: 'GET',
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      expect(err.name).toBe('AbortError');
+    }
+  });
+
   test.sequential('aborted request', async () => {
     expect.assertions(1);
 
