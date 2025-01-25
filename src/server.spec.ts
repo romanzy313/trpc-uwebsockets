@@ -351,7 +351,6 @@ describe('server', () => {
   });
 
   test('fetch GET smoke', async () => {
-    console.log('request url', `http://localhost:${app.port}/hello`);
     const req = await fetch(`http://localhost:${app.port}/hello`, {
       method: 'GET',
       headers: {
