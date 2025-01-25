@@ -343,34 +343,35 @@ describe('anonymous user', () => {
     expect(await req.text()).toEqual('Hello world');
   });
 
-  // fetch post is not implemented yet...
-  // test('fetch POST', async () => {
-  //   const data = { text: 'life', life: 42 };
-  //   const req = await fetch(`http://localhost:${app.url.port}/hello`, {
-  //     method: 'POST',
-  //     headers: {
-  //       Accept: 'application/json',
-  //       'Content-Type': 'application/json',
-  //     },
-  //     body: JSON.stringify(data),
-  //   });
-  //   // body should be object
-  //   expect(await req.json()).toMatchInlineSnapshot(`
-  //     Object {
-  //       "body": Object {
-  //         "life": 42,
-  //         "text": "life",
-  //       },
-  //       "hello": "POST",
-  //     }
-  //   `);
-  // });
+  // Vitest limitation...
+  // Error: InlineSnapshot cannot be used inside of test.each or describe.each
+  // https://github.com/vitest-dev/vitest/issues/3329
+  // therefore tests will be duplicated unfortunately
+  // test.each<ClientType>(['batchStreamWs'])(
+  //   'query - %name',
+  //   async (clientType) => {
+  //     const client = app.getClient(clientType);
+  //     expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
+  //     expect(await client.hello.query()).toMatchInlineSnapshot(`
+  //         Object {
+  //           "text": "hello anonymous",
+  //         }
+  //     `);
+  //     expect(
+  //       await client.hello.query({
+  //         username: 'test',
+  //       })
+  //     ).toMatchInlineSnapshot(`
+  //         Object {
+  //           "text": "hello test",
+  //         }
+  //     `);
+  //   }
+  // );
 
-  // Big L Error: InlineSnapshot cannot be used inside of test.each or describe.each
-  test.each<ClientType>(['batchStreamWs'])(
-    'query - %name',
-    async (clientType) => {
-      const client = app.getClient(clientType);
+  test('query', async () => {
+    {
+      const client = app.getClient('batchStreamWs');
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -387,49 +388,77 @@ describe('anonymous user', () => {
           }
       `);
     }
-  );
 
-  test.each<ClientType>(['batchStreamWs'])(
-    'mutation - %name',
-    async (clientType) => {
-      const client = app.getClient(clientType);
+    {
+      const client = app.getClient('batch');
+      expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
+      expect(await client.hello.query()).toMatchInlineSnapshot(`
+          Object {
+            "text": "hello anonymous",
+          }
+      `);
+      expect(
+        await client.hello.query({
+          username: 'test',
+        })
+      ).toMatchInlineSnapshot(`
+          Object {
+            "text": "hello test",
+          }
+      `);
+    }
+  });
+
+  test('mutation', async () => {
+    {
+      const client = app.getClient('batchStreamWs');
       expect(
         await client.editPost.mutate({
           id: '42',
           data: { title: 'new_title', text: 'new_text' },
         })
       ).toMatchInlineSnapshot(`
-        Object {
-          "error": "Unauthorized user",
-        }
-      `);
+      Object {
+        "error": "Unauthorized user",
+      }
+    `);
     }
-  );
 
-  // test('mutation', async () => {
-  //   expect(
-  //     await app.client.editPost.mutate({
-  //       id: '42',
-  //       data: { title: 'new_title', text: 'new_text' },
-  //     })
-  //   ).toMatchInlineSnapshot(`
-  //     Object {
-  //       "error": "Unauthorized user",
-  //     }
-  //   `);
-  // });
+    {
+      const client = app.getClient('batch');
+      expect(
+        await client.editPost.mutate({
+          id: '42',
+          data: { title: 'new_title', text: 'new_text' },
+        })
+      ).toMatchInlineSnapshot(`
+      Object {
+        "error": "Unauthorized user",
+      }
+    `);
+    }
+  });
 
   test('batched requests in body work correctly', async () => {
-    const { client } = createClientBatch({
-      ...app.opts.clientOptions,
-      port: app.port,
-    });
+    {
+      const client = app.getClient('batch');
 
-    const res = await Promise.all([
-      client.helloMutation.mutate('world'),
-      client.helloMutation.mutate('KATT'),
-    ]);
-    expect(res).toEqual(['hello world', 'hello KATT']);
+      const res = await Promise.all([
+        client.helloMutation.mutate('world'),
+        client.helloMutation.mutate('KATT'),
+      ]);
+      expect(res).toEqual(['hello world', 'hello KATT']);
+    }
+
+    {
+      const client = app.getClient('batchStreamWs');
+
+      const res = await Promise.all([
+        client.helloMutation.mutate('world'),
+        client.helloMutation.mutate('KATT'),
+      ]);
+      expect(res).toEqual(['hello world', 'hello KATT']);
+    }
   });
 
   // test('does not bind other websocket connection', async () => {
@@ -455,7 +484,9 @@ describe('anonymous user', () => {
   //   client.close();
   // });
 
-  test.skip('subscription', async () => {
+  test('subscription - sse', { timeout: 5000 }, async () => {
+    const client = app.getClient('sse');
+
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
         app.ee.emit('server:msg', {
@@ -469,7 +500,7 @@ describe('anonymous user', () => {
 
     const onStartedMock = vi.fn();
     const onDataMock = vi.fn();
-    const sub = app.client.onMessage.subscribe('onMessage', {
+    const sub = client.onMessage.subscribe('onMessage', {
       onStarted: onStartedMock,
       onData(data) {
         expectTypeOf(data).not.toBeAny();
@@ -478,10 +509,13 @@ describe('anonymous user', () => {
       },
     });
 
-    await vi.waitFor(() => {
-      expect(onStartedMock).toHaveBeenCalledTimes(1);
-      expect(onDataMock).toHaveBeenCalledTimes(2);
-    });
+    await vi.waitFor(
+      () => {
+        expect(onStartedMock).toHaveBeenCalledTimes(1);
+        expect(onDataMock).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 3000 }
+    );
 
     app.ee.emit('server:msg', {
       id: '3',
@@ -510,6 +544,8 @@ describe('anonymous user', () => {
         ],
       ]
     `);
+
+    // throw new Error('is this working???');
 
     sub.unsubscribe();
 
