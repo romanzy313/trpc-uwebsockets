@@ -11,6 +11,7 @@ import uWs from 'uWebSockets.js';
 import { EventEmitter } from 'events';
 import {
   createTRPCClient,
+  loggerLink,
   createWSClient,
   httpBatchLink,
   splitLink,
@@ -21,7 +22,7 @@ import {
 import type { HTTPHeaders, TRPCLink } from '@trpc/client';
 import { initTRPC } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
-// import fetch from 'node-fetch'; // why this again?
+import { EventSourcePolyfill } from 'event-source-polyfill';
 import { z } from 'zod';
 
 import {
@@ -264,9 +265,11 @@ function createClientSSE(opts: ClientOptions) {
   const host = `localhost:${opts.port}${config.prefix}`;
   const client = createTRPCClient<AppRouter>({
     links: [
+      // loggerLink(),
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
-        // headers: opts.headers,
+        // ponyfill EventSource
+        EventSource: EventSourcePolyfill,
       }),
     ],
   });
