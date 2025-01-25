@@ -1,4 +1,4 @@
-import { test, expect } from 'vitest';
+import { test, expect, describe } from 'vitest';
 import uWs from 'uWebSockets.js';
 
 // source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
@@ -15,12 +15,13 @@ import {
   decorateHttpResponse,
   uWsToRequest,
   uWsSendResponse,
+  uWsSendResponseStreamed,
 } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {
   const app = uWs.App();
 
-  app.get('/smoke', async (res, _req) => {
+  app.get('/regular', async (res, _req) => {
     const resDecorated = decorateHttpResponse(res);
 
     res.onAborted(() => {
@@ -40,37 +41,26 @@ function createServer(opts: { maxBodySize: number | null }) {
 
     await uWsSendResponse(resDecorated, resFetch);
   });
+  app.get('/streamed', async (res, _req) => {
+    const resDecorated = decorateHttpResponse(res);
 
-  // app.any('/*', async (res, req) => {
-  //   const resDecorated = decorateHttpResponse(res);
+    res.onAborted(() => {
+      resDecorated.aborted = true;
+    });
 
-  //   const request = uWsToRequest(req, resDecorated, opts);
-  //   console.log('request', request);
-  //   const reqBody = await request.json();
-  //   console.log('reqBody', reqBody);
+    const headers = new Headers();
+    headers.append('content-type', 'vi/test');
+    headers.append('set-cookie', 'one=1');
+    headers.append('set-cookie', 'two=2');
 
-  //   const headers = new Headers();
+    const resFetch = new Response('hello world', {
+      status: 200,
+      statusText: '200 OK',
+      headers: headers,
+    });
 
-  //   if ('headers' in reqBody) {
-  //     const desiredHeaders = reqBody['headers'] as {
-  //       name: string;
-  //       value: string;
-  //     }[];
-
-  //     desiredHeaders.forEach(({ name, value }) => {
-  //       headers.append(name, value);
-  //     });
-  //   }
-
-  //   // lets produce a response
-  //   const resFetch = new Response(reqBody.body, {
-  //     status: reqBody.status,
-  //     statusText: reqBody.statusText,
-  //     headers: headers,
-  //   });
-
-  //   await uWsSendResponse(resDecorated, resFetch);
-  // });
+    await uWsSendResponseStreamed(resDecorated, resFetch);
+  });
 
   let socket: uWs.us_listen_socket | false | null = null;
 
@@ -106,20 +96,40 @@ function createServer(opts: { maxBodySize: number | null }) {
   };
 }
 
-test.sequential('smoke', async () => {
-  const server = createServer({ maxBodySize: null });
-  const res = await server.fetch({
-    path: '/smoke',
-    method: 'GET',
+describe('response', () => {
+  test.sequential('regular', async () => {
+    const server = createServer({ maxBodySize: null });
+    const res = await server.fetch({
+      path: '/regular',
+      method: 'GET',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('vi/test');
+    expect(res.headers.get('set-cookie')).toBe('one=1, two=2');
+
+    expect(res.headers.has('content-length')).toBe(true);
+
+    await server.close();
   });
 
-  expect(res.ok).toBe(true);
-  expect(res.status).toBe(200);
-  // expect(res.statusText).toBe('OK');
-  expect(res.headers.get('content-type')).toBe('vi/test');
-  expect(res.headers.get('set-cookie')).toBe('one=1, two=2');
+  test.sequential('streamed', async () => {
+    const server = createServer({ maxBodySize: null });
+    const res = await server.fetch({
+      path: '/streamed',
+      method: 'GET',
+    });
 
-  await server.close();
+    expect(res.ok).toBe(true);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('vi/test');
+    expect(res.headers.get('set-cookie')).toBe('one=1, two=2');
+
+    expect(res.headers.get('transfer-encoding')).toBe('chunked');
+
+    await server.close();
+  });
 });
 
 // test.sequential('megatest', async () => {
