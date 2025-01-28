@@ -26,11 +26,11 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { z } from 'zod';
 
 import {
-  type UWsTRPCPluginOptions,
+  type UWsHandlerOptions,
   type CreateUWsContextOptions,
-  uWsTRPCPlugin,
-} from './uWsTRPCPlugin';
-import { applyWSSHandler } from './websockets';
+  createUWebSocketsHandler,
+} from './requestHandler';
+import { applyWebsocketsHandler } from './websockets';
 
 const config = {
   prefix: '/trpc',
@@ -151,7 +151,7 @@ function createServer(opts: ServerOptions) {
 
   const router = opts.appRouter;
 
-  uWsTRPCPlugin(instance, {
+  createUWebSocketsHandler(instance, {
     // useWSS: true, // TODO
     prefix: config.prefix,
     useWebsockets: true,
@@ -168,9 +168,9 @@ function createServer(opts: ServerOptions) {
           },
         };
       },
-    } satisfies UWsTRPCPluginOptions<AppRouter>['trpcOptions'],
+    } satisfies UWsHandlerOptions<AppRouter>['trpcOptions'],
   });
-  applyWSSHandler(instance, {
+  applyWebsocketsHandler(instance, {
     prefix: config.prefix,
     router,
     createContext,

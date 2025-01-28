@@ -83,7 +83,7 @@ export type WSConnectionHandlerOptions<TRouter extends AnyRouter> =
 /**
  * Web socket server handler
  */
-export type WSSHandlerOptions<TRouter extends AnyRouter> =
+export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
   WSConnectionHandlerOptions<TRouter> & {
     // wss: ws.WebSocketServer;
     prefix?: string;
@@ -129,7 +129,7 @@ type Decoration = {
 
 const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
 export function getWSConnectionHandler<TRouter extends AnyRouter>(
-  opts: WSSHandlerOptions<TRouter>,
+  opts: WebsocketsHandlerOptions<TRouter>,
   allClients: Set<WebSocket<Decoration>>
 ): WebSocketBehavior<Decoration> {
   const { createContext, router } = opts;
@@ -589,9 +589,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
   };
 }
 
-export function applyWSSHandler<TRouter extends AnyRouter>(
+export function applyWebsocketsHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
-  opts: WSSHandlerOptions<TRouter>
+  opts: WebsocketsHandlerOptions<TRouter>
 ) {
   const allClients = new Set<WebSocket<Decoration>>();
   const behavior = getWSConnectionHandler(opts, allClients);

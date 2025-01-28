@@ -1,5 +1,10 @@
 // TODO
 
-// export { applyWSHandler, WSSHandlerOptions } from './applyWsHandler';
-// export { createUWebSocketsHandler } from './createUWebsocketsHandler';
-// export * from './types';
+export { applyWebsocketsHandler, WebsocketsHandlerOptions } from './websockets';
+export {
+  createUWebSocketsHandler,
+  CreateUWsContextOptions,
+  CreateUwsHandlerOptions,
+  UWsHandlerOptions,
+} from './requestHandler';
+export { HttpResponseDecorated } from './fetchCompat';
