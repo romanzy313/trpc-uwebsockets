@@ -9,8 +9,6 @@ import uWs from 'uWebSockets.js';
 //   console.warn('warning stacktrace - ' + warning.stack);
 // });
 
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {

@@ -515,6 +515,8 @@ describe('server', () => {
     client.close();
   });
 
+  // TODO: test failure of context as in v10
+
   test('subscription - websocket', async () => {
     const client = app.getClient('batchStreamWs');
 
