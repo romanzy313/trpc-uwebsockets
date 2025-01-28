@@ -153,11 +153,14 @@ function createServer(opts: ServerOptions) {
       router,
       createContext,
       onError(data) {
-        // report to error monitoring
-        // TODO: whats this???
-        // data;
-        // ^?
-        console.error('PLUGIN ERROR', data);
+        console.error('trpc error', data);
+      },
+      responseMeta({ ctx, paths, type, errors }) {
+        return {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+          },
+        };
       },
     } satisfies UWsTRPCPluginOptions<AppRouter>['trpcOptions'],
   });
@@ -353,6 +356,14 @@ describe('server', () => {
     });
     // body should be object
     expect(await req.text()).toEqual('Hello world');
+  });
+
+  test('response meta', async () => {
+    const fetcher = await fetch(
+      `http://localhost:${app.port}/trpc/ping?input=${encodeURI('{}')}`
+    );
+    expect(fetcher.status).toEqual(200);
+    expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
   });
 
   // Vitest limitation...
