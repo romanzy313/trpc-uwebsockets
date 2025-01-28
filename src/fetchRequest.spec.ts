@@ -72,7 +72,7 @@ function createServer(opts: { maxBodySize: number | null }) {
 }
 
 describe('request', () => {
-  test.sequential('basic GET', async () => {
+  test('basic GET', async () => {
     const server = createServer({ maxBodySize: null });
     await server.fetch({}, async (request) => {
       expect(request.method).toBe('GET');
@@ -80,7 +80,7 @@ describe('request', () => {
     await server.close();
   });
 
-  test.sequential('basic POST', async () => {
+  test('basic POST', async () => {
     const server = createServer({ maxBodySize: null });
 
     await server.fetch(
@@ -95,7 +95,7 @@ describe('request', () => {
     await server.close();
   });
 
-  test.sequential('POST with body', async () => {
+  test('POST with body', async () => {
     const server = createServer({ maxBodySize: null });
 
     {
@@ -136,7 +136,7 @@ describe('request', () => {
     await server.close();
   });
 
-  test.sequential('POST with body and maxBodySize', async () => {
+  test('POST with body and maxBodySize', async () => {
     const server = createServer({ maxBodySize: 10 });
     {
       // exceeds
@@ -173,7 +173,7 @@ describe('request', () => {
     server.close();
   });
 
-  test.sequential('retains url and search params', async () => {
+  test('retains url and search params', async () => {
     const server = createServer({ maxBodySize: null });
 
     {
@@ -211,7 +211,7 @@ describe('request', () => {
 
   // testing aborts without mocks...is painful...
   // TODO: recreate the slow request in a same way as is done with slow response
-  test.sequential('aborted requests are handled', async () => {
+  test('aborted requests are handled', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });
@@ -241,7 +241,7 @@ describe('request', () => {
   // TODO: this is a flaky test as timeout must be handled
   // very large body of 2^24 takes about 12ms on my machine
   // so i guess this is fine
-  test.sequential('aborted requests in flight are handled', async () => {
+  test('aborted requests in flight are handled', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });

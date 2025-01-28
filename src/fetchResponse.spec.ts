@@ -143,7 +143,7 @@ function createServer(opts: { maxBodySize: number | null }) {
 }
 
 describe('response', () => {
-  test.sequential('empty body', async () => {
+  test('empty body', async () => {
     const server = createServer({ maxBodySize: null });
     const res = await server.fetch({
       path: '/empty',
@@ -157,7 +157,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('regular', async () => {
+  test('regular', async () => {
     const server = createServer({ maxBodySize: null });
     const res = await server.fetch({
       path: '/regular',
@@ -174,7 +174,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('streamed', async () => {
+  test('streamed', async () => {
     const server = createServer({ maxBodySize: null });
     const res = await server.fetch({
       path: '/streamed',
@@ -191,7 +191,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('large streamed', async () => {
+  test('large streamed', async () => {
     const server = createServer({ maxBodySize: null });
     const size = 2 ** 20;
     const count = 10;
@@ -213,7 +213,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('slow streamed', async () => {
+  test('slow streamed', async () => {
     const server = createServer({ maxBodySize: null });
 
     const size = 10;
@@ -230,7 +230,7 @@ describe('response', () => {
     expect((await res.text()).length).toBe(size * count);
   });
 
-  test.sequential('slow aborted', async () => {
+  test('slow aborted', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });
@@ -259,7 +259,7 @@ describe('response', () => {
     }
   });
 
-  test.sequential('aborted request', async () => {
+  test('aborted request', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });
@@ -282,7 +282,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test.sequential('aborted request in flight', async () => {
+  test('aborted request in flight', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });
