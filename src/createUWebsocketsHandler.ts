@@ -4,7 +4,7 @@ import { uWsHTTPRequestHandler } from './uWsRequestHandler';
 import { uHTTPHandlerOptions, WrappedHTTPRequest } from './types';
 import { extractAndWrapHttpRequest } from './utils';
 
-import type { AnyTRPCRouter } from '@trpc/server';
+import type { AnyRouter, AnyTRPCRouter } from '@trpc/server';
 
 /**
  * @param uWsApp uWebsockets server instance
@@ -36,6 +36,6 @@ export function createUWebSocketsHandler<TRouter extends AnyTRPCRouter>(
   uWsApp.post(prefix + '/*', handler);
 
   if (opts.enableSubscriptions) {
-    applyWSHandler(prefix, opts as WSSHandlerOptions<TRouter>);
+    applyWSHandler(prefix, opts as WSSHandlerOptions<TRouter as AnyRouter>);
   }
 }

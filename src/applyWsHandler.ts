@@ -406,7 +406,7 @@ export function applyWSHandler<TRouter extends AnyTRPCRouter>(
       }
     },
 
-    close(client: WebSocket<Decoration>) {
+    close(client: WebSocket<Decoration>, code, message) {
       const data = client.getUserData();
 
       for (const sub of data.clientSubscriptions.values()) {

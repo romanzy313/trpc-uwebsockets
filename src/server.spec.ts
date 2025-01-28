@@ -30,6 +30,7 @@ import {
   type CreateUWsContextOptions,
   uWsTRPCPlugin,
 } from './uWsTRPCPlugin';
+import { applyWSSHandler } from './websockets';
 
 const config = {
   prefix: '/trpc',
@@ -147,16 +148,23 @@ function createServer(opts: ServerOptions) {
   uWsTRPCPlugin(instance, {
     // useWSS: true, // TODO
     prefix: config.prefix,
+    useWebsockets: true,
     trpcOptions: {
       router,
       createContext,
       onError(data) {
         // report to error monitoring
         // TODO: whats this???
-        data;
+        // data;
         // ^?
+        console.error('PLUGIN ERROR', data);
       },
     } satisfies UWsTRPCPluginOptions<AppRouter>['trpcOptions'],
+  });
+  applyWSSHandler(instance, {
+    prefix: config.prefix,
+    router,
+    createContext,
   });
 
   instance.get('/hello', async (res, req) => {
@@ -164,6 +172,12 @@ function createServer(opts: ServerOptions) {
   });
   instance.post('/hello', async (res, req) => {
     res.end(JSON.stringify({ hello: 'POST', body: 'TODO, why?' }));
+  });
+
+  instance.ws('/ws', {
+    message: (client, rawMsg) => {
+      client.send(rawMsg);
+    },
   });
 
   instance.any('/*', (res, req) => {
@@ -230,6 +244,7 @@ function createClientBatchStreamWs(opts: ClientOptions) {
   const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
+      loggerLink(),
       splitLink({
         condition(op) {
           return op.type === 'subscription';
@@ -480,28 +495,98 @@ describe('server', () => {
     }
   });
 
-  // test('does not bind other websocket connection', async () => {
-  //   const client = new WebSocket(`ws://localhost:${app.url.port}/ws`);
+  test('does not bind other websocket connection', async () => {
+    const client = new WebSocket(`ws://localhost:${app.port}/ws`);
 
-  //   await new Promise<void>((resolve, reject) => {
-  //     client.once('open', () => {
-  //       client.send('hello');
-  //       resolve();
-  //     });
+    await new Promise<void>((resolve, reject) => {
+      client.onopen = () => {
+        client.send('hello');
+        resolve();
+      };
+      client.onerror = reject;
+    });
 
-  //     client.once('error', reject);
-  //   });
+    const promise = new Promise<string>((resolve) => {
+      client.onmessage = (msg) => {
+        return resolve(msg.data);
+      };
+    });
 
-  //   const promise = new Promise<string>((resolve) => {
-  //     client.once('message', resolve);
-  //   });
+    const message = await promise;
 
-  //   const message = await promise;
+    expect(message.toString()).toBe('hello');
 
-  //   expect(message.toString()).toBe('hello');
+    client.close();
+  });
 
-  //   client.close();
-  // });
+  test('subscription - websocket', { timeout: 5000 }, async () => {
+    const client = app.getClient('batchStreamWs');
+
+    app.ee.once('subscription:created', () => {
+      setTimeout(() => {
+        app.ee.emit('server:msg', {
+          id: '1',
+        });
+        app.ee.emit('server:msg', {
+          id: '2',
+        });
+      });
+    });
+
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
+    const sub = client.onMessage.subscribe('onMessage', {
+      onStarted: onStartedMock,
+      onData(data) {
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        onDataMock(data);
+      },
+    });
+
+    await vi.waitFor(
+      () => {
+        expect(onStartedMock).toHaveBeenCalledTimes(1);
+        expect(onDataMock).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 3000 }
+    );
+
+    app.ee.emit('server:msg', {
+      id: '3',
+    });
+
+    await vi.waitFor(() => {
+      expect(onDataMock).toHaveBeenCalledTimes(3);
+    });
+
+    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          Object {
+            "id": "1",
+          },
+        ],
+        Array [
+          Object {
+            "id": "2",
+          },
+        ],
+        Array [
+          Object {
+            "id": "3",
+          },
+        ],
+      ]
+    `);
+
+    sub.unsubscribe();
+
+    await vi.waitFor(() => {
+      expect(app.ee.listenerCount('server:msg')).toBe(0);
+      expect(app.ee.listenerCount('server:error')).toBe(0);
+    });
+  });
 
   test('subscription - sse', { timeout: 5000 }, async () => {
     const client = app.getClient('sse');

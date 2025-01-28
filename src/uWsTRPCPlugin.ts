@@ -6,10 +6,11 @@ import {
   type NodeHTTPCreateContextFnOptions,
 } from '@trpc/server/adapters/node-http';
 import type { AnyRouter } from '@trpc/server';
+import { applyWSSHandler, WSSHandlerOptions } from './websockets';
 
 export interface UWsTRPCPluginOptions<TRouter extends AnyRouter> {
   prefix?: string;
-  useWSS?: boolean;
+  useWebsockets?: boolean;
   // middleware?: ConnectMiddleware; //TODO
   // TODO: UWSBuiltInOpts from applyWsHandler.ts
   trpcOptions: UWsHandlerOptions<TRouter, HttpRequest, HttpResponse>;
@@ -39,10 +40,15 @@ export function uWsTRPCPlugin<TRouter extends AnyRouter>(
   app.get(prefix + '/*', handler);
   app.post(prefix + '/*', handler);
 
-  // fastify.all(`${prefix}/:path`, async (req, res) => {
-  //   const path = (req.params as any).path;
-  //   await fastifyRequestHandler({ ...opts.trpcOptions, req, res, path });
-  // });
+  // if (opts.useWebsockets) {
+  //   throw new Error('TODO');
+  //   const trpcOptions =
+  //     opts.trpcOptions as unknown as WSSHandlerOptions<AnyRouter>;
+  //   // opts.trpcOptions as unknown as WSSHandlerOptions<TRouter>;
+  //   applyWSSHandler({
+  //     ...trpcOptions,
+  //   });
+  // }
 
   // if (opts.useWSS) {
   //   const trpcOptions =
