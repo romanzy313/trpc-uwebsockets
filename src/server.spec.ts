@@ -38,6 +38,12 @@ const config = {
 
 function createContext({ req, res, info }: CreateUWsContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
+
+  // filter out so that this is not triggered during subscription
+  // but really, responseMeta should be used instead!
+  if (info.type === 'query') {
+    res.writeHeader('x-test', 'true');
+  }
   return { req, res, user, info };
 }
 
@@ -364,6 +370,7 @@ describe('server', () => {
     );
     expect(fetcher.status).toEqual(200);
     expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
+    expect(fetcher.headers.get('x-test')).toEqual('true'); // from the context
   });
 
   // Vitest limitation...
