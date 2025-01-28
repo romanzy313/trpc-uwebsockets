@@ -3,14 +3,6 @@ import uWs from 'uWebSockets.js';
 
 // source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
 
-// this is needed to show nodes internal errors
-// source: https://stackoverflow.com/questions/78946606/use-node-trace-warnings-to-show-where-the-warning-was-created
-process.on('warning', (warning) => {
-  console.warn('warning stacktrace - ' + warning.stack);
-});
-
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 import {
   decorateHttpResponse,
   uWsSendResponse,

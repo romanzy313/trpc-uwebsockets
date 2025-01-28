@@ -501,6 +501,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         await data.ctxPromise;
       }
 
+      // console.log('client post-promise', data.ctx);
+
       // TODO: handle keepalive is here
       if (opts.keepAlive?.enabled) {
         const { pingMs, pongWaitMs } = opts.keepAlive;
@@ -510,7 +512,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     async message(client, rawMsg) {
       const data = client.getUserData();
 
-      const msgStr = rawMsg.toString(); // or could do this Buffer.from(rawMsg).toString();
+      // const msgStr = rawMsg.toString(); // or could do this ;
+      const msgStr = Buffer.from(rawMsg).toString();
       if (msgStr === 'PONG') {
         return;
       }
@@ -595,7 +598,8 @@ export function applyWSSHandler<TRouter extends AnyRouter>(
 
   const prefix = opts.prefix ?? '';
 
-  app.ws(prefix + '/*', behavior);
+  app.ws(prefix, behavior);
+  // app.ws(prefix + '/*', behavior);
 
   // opts.wss.on('connection', (client, req) => {
   //   if (opts.prefix && !req.url?.startsWith(opts.prefix)) {

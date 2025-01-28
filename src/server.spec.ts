@@ -199,7 +199,6 @@ function createServer(opts: ServerOptions) {
 
   return {
     stop() {
-      // donest need to be async, but for compat
       if (!socket) {
         throw new Error('could not close socket as socket is already closed');
       }
@@ -287,25 +286,6 @@ function createClientSSE(opts: ClientOptions) {
       }),
     ],
   });
-  // const client = createTRPCClient<AppRouter>({
-  //   links: [
-  //     linkSpy,
-  //     splitLink({
-  //       condition(op) {
-  //         return op.type === 'subscription';
-  //       },
-  //       true: unstable_httpSubscriptionLink({
-  //         url: `http://${host}`,
-  //         // ponyfill EventSource
-  //         EventSource: EventSourcePolyfill,
-  //       }),
-  //       false: unstable_httpBatchStreamLink({
-  //         url: `http://${host}`,
-  //         headers: opts.headers,
-  //       }),
-  //     }),
-  //   ],
-  // });
   return { client };
 }
 
@@ -324,7 +304,6 @@ async function createApp(opts: AppOptions = {}) {
   return {
     server: instance,
     stop,
-    // client: clientBatchStreamWs,
     getClient(clientType: ClientType) {
       switch (clientType) {
         case 'batchStreamWs':
@@ -348,7 +327,6 @@ async function createApp(opts: AppOptions = {}) {
     },
     ee,
     port,
-    // url,
     opts,
   };
 }
@@ -519,7 +497,7 @@ describe('server', () => {
     client.close();
   });
 
-  test.skip('subscription - websocket', { timeout: 5000 }, async () => {
+  test('subscription - websocket', async () => {
     const client = app.getClient('batchStreamWs');
 
     app.ee.once('subscription:created', () => {
@@ -544,13 +522,10 @@ describe('server', () => {
       },
     });
 
-    await vi.waitFor(
-      () => {
-        expect(onStartedMock).toHaveBeenCalledTimes(1);
-        expect(onDataMock).toHaveBeenCalledTimes(2);
-      },
-      { timeout: 3000 }
-    );
+    await vi.waitFor(() => {
+      expect(onStartedMock).toHaveBeenCalledTimes(1);
+      expect(onDataMock).toHaveBeenCalledTimes(2);
+    });
 
     app.ee.emit('server:msg', {
       id: '3',
