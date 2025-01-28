@@ -7,18 +7,24 @@ import {
 } from '@trpc/server/adapters/node-http';
 import type { AnyRouter } from '@trpc/server';
 import { applyWSSHandler, WSSHandlerOptions } from './websockets';
+import {
+  decorateHttpResponse,
+  HttpResponseDecorated,
+  uWsToRequest,
+} from './fetchCompat';
 
 export interface UWsTRPCPluginOptions<TRouter extends AnyRouter> {
   prefix?: string;
   useWebsockets?: boolean;
   // middleware?: ConnectMiddleware; //TODO
   // TODO: UWSBuiltInOpts from applyWsHandler.ts
-  trpcOptions: UWsHandlerOptions<TRouter, HttpRequest, HttpResponse>;
+  trpcOptions: UWsHandlerOptions<TRouter, Request, HttpResponseDecorated>;
+  maxBodySize?: number;
 }
 
 export type CreateUWsContextOptions = NodeHTTPCreateContextFnOptions<
-  HttpRequest,
-  HttpResponse
+  Request,
+  HttpResponseDecorated
 >;
 
 export function uWsTRPCPlugin<TRouter extends AnyRouter>(
@@ -29,10 +35,15 @@ export function uWsTRPCPlugin<TRouter extends AnyRouter>(
 
   const handler = async (res: HttpResponse, req: HttpRequest) => {
     const url = req.getUrl().substring(prefix.length + 1);
+    const resDecorated = decorateHttpResponse(res);
+    const reqFetch = uWsToRequest(req, resDecorated, {
+      maxBodySize: opts.maxBodySize ?? null,
+    });
+
     await uWsRequestHandler({
       ...opts.trpcOptions,
-      req: req,
-      res: res,
+      req: reqFetch,
+      res: resDecorated,
       path: url,
     });
   };

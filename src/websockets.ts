@@ -28,7 +28,10 @@ import {
   getTRPCErrorFromUnknown,
   isTrackedEnvelope,
 } from '@trpc/server';
-import { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
+import {
+  createURL,
+  NodeHTTPCreateContextFnOptions,
+} from '@trpc/server/adapters/node-http';
 import {
   type MaybePromise,
   isAsyncIterable,
@@ -43,7 +46,11 @@ import {
   type TRPCResultMessage,
   parseTRPCMessage,
 } from '@trpc/server/rpc';
-import { decorateHttpResponse, HttpResponseDecorated } from './fetchCompat';
+import {
+  decorateHttpResponse,
+  HttpResponseDecorated,
+  uWsToRequest,
+} from './fetchCompat';
 import {
   isObservable,
   observableToAsyncIterable,
@@ -58,7 +65,7 @@ import {
  * @public
  */
 export type CreateWSSContextFnOptions = NodeHTTPCreateContextFnOptions<
-  HttpRequest,
+  Request,
   HttpResponseDecorated
 >;
 
@@ -67,7 +74,7 @@ export type CreateWSSContextFn<TRouter extends AnyRouter> = (
 ) => MaybePromise<inferRouterContext<TRouter>>;
 
 export type WSConnectionHandlerOptions<TRouter extends AnyRouter> =
-  BaseHandlerOptions<TRouter, HttpRequest> &
+  BaseHandlerOptions<TRouter, Request> &
     CreateContextCallback<
       inferRouterContext<TRouter>,
       CreateWSSContextFn<TRouter>
@@ -109,7 +116,7 @@ export type WSSHandlerOptions<TRouter extends AnyRouter> =
 // data bound internally on each client
 // this all is changed in newer versions
 type Decoration = {
-  req: HttpRequest;
+  req: Request;
   res: HttpResponseDecorated;
   clientSubscriptions: Map<number | string, AbortController>;
   abortController: AbortController;
@@ -448,9 +455,11 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     idleTimeout: opts.uWsBehaviorOptions?.idleTimeout,
     async upgrade(res, req, context) {
       const resDecorated = decorateHttpResponse(res);
-
       res.onAborted(() => {
         resDecorated.aborted = true;
+      });
+      const reqFetch = uWsToRequest(req, resDecorated, {
+        maxBodySize: null, // leave it null here?
       });
 
       const secWebSocketKey = req.getHeader('sec-websocket-key');
@@ -463,7 +472,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       const data: Decoration = {
         clientSubscriptions,
         abortController,
-        req,
+        req: reqFetch,
         res: resDecorated,
         ctx: undefined,
         ctxPromise: undefined, // major change from the ws implementation
@@ -482,17 +491,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       const data = client.getUserData();
 
-      // unable to use req in here... therefore I should upgrade it to the javascript Request?
-
-      // create the context things
-      // context
-
-      // createCtxPromise cannot be used here
-      // as the client must be established
-
-      // TODO: fixmeup, req cant be used
+      // TODO: cleanup, this is not nice
       data.ctxPromise =
-        data.req.getQuery('connectionParams') === '1'
+        new URL(data.req.url).searchParams.get('connectionParams') === '1'
           ? unsetContextPromiseSymbol
           : createCtxPromise(client, () => null);
 

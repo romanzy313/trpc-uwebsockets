@@ -21,30 +21,31 @@ import {
   decorateHttpResponse,
   uWsToRequest,
   uWsSendResponseStreamed,
+  HttpResponseDecorated,
 } from './fetchCompat';
 
 export type UWsHandlerOptions<
   TRouter extends AnyRouter,
-  TRequest extends HttpRequest,
-  TResponse extends HttpResponse
+  TRequest extends Request,
+  TResponse extends HttpResponseDecorated,
 > = HTTPBaseHandlerOptions<TRouter, TRequest> &
   NodeHTTPCreateContextOption<TRouter, TRequest, TResponse>;
 
 type UWsRequestHandlerOptions<
   TRouter extends AnyRouter,
-  TRequest extends HttpRequest,
-  TResponse extends HttpResponse
+  TRequest extends Request,
+  TResponse extends HttpResponseDecorated,
 > = UWsHandlerOptions<TRouter, TRequest, TResponse> & {
   req: TRequest;
   res: TResponse;
   path: string;
-  maxBodySize?: number;
+  // maxBodySize?: number;
 };
 
 export async function uWsRequestHandler<
   TRouter extends AnyRouter,
-  TRequest extends HttpRequest,
-  TResponse extends HttpResponse
+  TRequest extends Request,
+  TResponse extends HttpResponseDecorated,
 >(opts: UWsRequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const createContext: ResolveHTTPRequestOptionsContextFn<TRouter> = async (
     innerOpts
@@ -55,15 +56,13 @@ export async function uWsRequestHandler<
     });
   };
 
-  const resDecorated = decorateHttpResponse(opts.res);
-
-  const fetchReq = uWsToRequest(opts.req, resDecorated, {
-    maxBodySize: opts.maxBodySize ?? null,
-  });
+  // const fetchReq = uWsToRequest(opts.req, resDecorated, {
+  //   maxBodySize: opts.maxBodySize ?? null,
+  // });
 
   const fetchRes = await resolveResponse({
     ...opts,
-    req: fetchReq,
+    req: opts.req, // niew
     error: null,
     createContext,
     onError(o) {
@@ -74,7 +73,7 @@ export async function uWsRequestHandler<
     },
   });
 
-  await uWsSendResponseStreamed(fetchRes, resDecorated);
+  await uWsSendResponseStreamed(fetchRes, opts.res);
 }
 
 // import { getPostBody } from './utils';
