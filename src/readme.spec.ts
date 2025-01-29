@@ -1,4 +1,4 @@
-// README code starts below. replace import from './index' with 'trpc-uwebsocket'
+// README code starts below. replace import from './index' with 'trpc-uwebsockets'
 
 // README SERVER START
 import * as uWs from 'uWebSockets.js';
