@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:publish": "yarn test && yarn build && yarn pack",
+    "publish:rc": "yarn publish --tag next",
     "prepublishOnly": "yarn clean && yarn prettier && yarn lint && yarn test && yarn build",
     "clean": "rimraf -rf ./dist && rimraf -rf ./types && rimraf -rf ./*-*.tgz",
     "format": "yarn clean && yarn prettier && yarn lint",
@@ -56,8 +57,7 @@
   "files": [
     "dist",
     "src",
-    "types",
-    "test"
+    "types"
   ],
   "license": "MIT",
   "keywords": [
