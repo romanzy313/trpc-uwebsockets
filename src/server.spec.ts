@@ -42,13 +42,18 @@ function createContext({ req, res, info }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
 
   if (req.headers.has('throw')) {
-    throw new Error(req.headers.get('throw')!);
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: req.headers.get('throw')!,
+    });
+    // throw new Error(req.headers.get('throw')!);
   }
 
-  const url = new URL(req.url);
-
-  if (url.searchParams.has('throw')) {
-    throw new Error(url.searchParams.get('throw')!);
+  if (info.connectionParams?.throw) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: info.connectionParams?.throw,
+    });
   }
 
   // filter out so that this is not triggered during subscription
@@ -298,10 +303,10 @@ function createClientBatchStreamWs(opts: ClientOptions) {
     url: `ws://${host}`,
     onError: opts.onError,
     onClose: (asd) => {
-      console.log('onClose was called', asd);
+      console.error('onClose was called', asd);
     },
     connectionParams: opts.connectionParams,
-    retryDelayMs: () => 0,
+    retryDelayMs: () => 1000,
   });
   const client = createTRPCClient<AppRouter>({
     links: [
@@ -425,32 +430,6 @@ describe('server', () => {
     expect(res.headers.get('x-test')).toEqual('true'); // from the context
   });
 
-  // Vitest limitation...
-  // Error: InlineSnapshot cannot be used inside of test.each or describe.each
-  // https://github.com/vitest-dev/vitest/issues/3329
-  // therefore tests will be duplicated unfortunately
-  // test.each<ClientType>(['batchStreamWs'])(
-  //   'query - %name',
-  //   async (clientType) => {
-  //     const client = app.getClient(clientType);
-  //     expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
-  //     expect(await client.hello.query()).toMatchInlineSnapshot(`
-  //         Object {
-  //           "text": "hello anonymous",
-  //         }
-  //     `);
-  //     expect(
-  //       await client.hello.query({
-  //         username: 'test',
-  //       })
-  //     ).toMatchInlineSnapshot(`
-  //         Object {
-  //           "text": "hello test",
-  //         }
-  //     `);
-  //   }
-  // );
-
   test('query', async () => {
     {
       const client = app.getClient('batchStreamWs');
@@ -519,6 +498,17 @@ describe('server', () => {
       }
     `);
     }
+  });
+
+  test('streaming', async () => {
+    const client = app.getClient('batchStreamWs');
+    const results = await Promise.all([
+      client.deferred.query({ wait: 3 }),
+      client.deferred.query({ wait: 1 }),
+      client.deferred.query({ wait: 2 }),
+    ]);
+    expect(results).toEqual([3, 1, 2]);
+    expect(orderedResults).toEqual([1, 2, 3]);
   });
 
   test('batched requests in body work correctly', async () => {
@@ -752,10 +742,11 @@ describe('server', () => {
   // the current websocket client just keeps on trying to reconnect
   // no way to tell it to stop the reconnection
   // and it never raises an error that connection could not be established
-  test.skip('subscription - handles throwing context', async () => {
+  test('subscription - handles throwing context', async () => {
     let error: any = null;
+
     const client = app.getClient('batchStreamWs', {
-      queryParams: {
+      connectionParams: {
         throw: 'expected_context_error',
       },
       onError(evt) {
@@ -768,7 +759,11 @@ describe('server', () => {
         from: 0,
         count: 10,
       },
-      {}
+      {
+        onError(err) {
+          error = err;
+        },
+      }
     );
 
     await vi.waitFor(
@@ -778,18 +773,8 @@ describe('server', () => {
       },
       {
         timeout: 2000,
+        interval: 1000,
       }
     );
-  });
-
-  test('streaming', async () => {
-    const client = app.getClient('batchStreamWs');
-    const results = await Promise.all([
-      client.deferred.query({ wait: 3 }),
-      client.deferred.query({ wait: 1 }),
-      client.deferred.query({ wait: 2 }),
-    ]);
-    expect(results).toEqual([3, 1, 2]);
-    expect(orderedResults).toEqual([1, 2, 3]);
   });
 });
