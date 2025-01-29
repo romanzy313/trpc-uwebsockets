@@ -47,7 +47,6 @@ function createContext({ req, res, info }: CreateContextOptions) {
 
   const url = new URL(req.url);
 
-  console.log('query params are', url.searchParams);
   if (url.searchParams.has('throw')) {
     throw new Error(url.searchParams.get('throw')!);
   }
@@ -197,7 +196,7 @@ function createServer(opts: ServerOptions) {
       router,
       createContext,
       onError(data) {
-        console.error('trpc error', data);
+        // console.error('trpc error', data);
       },
       responseMeta({ ctx, paths, type, errors }) {
         return {
