@@ -18,6 +18,7 @@ import {
   unstable_httpBatchStreamLink,
   unstable_httpSubscriptionLink,
   wsLink,
+  TRPCClientError,
 } from '@trpc/client';
 import type { HTTPHeaders, TRPCLink } from '@trpc/client';
 import { initTRPC, TRPCError } from '@trpc/server';
@@ -31,7 +32,7 @@ import {
   CreateHandlerOptions,
 } from './requestHandler';
 import { applyWebsocketHandler } from './websockets';
-import { HttpResponseDecorated } from './fetchCompat';
+import { TRPCRequestInfo } from '@trpc/server/http';
 
 const config = {
   prefix: '/trpc',
@@ -42,6 +43,13 @@ function createContext({ req, res, info }: CreateContextOptions) {
 
   if (req.headers.has('throw')) {
     throw new Error(req.headers.get('throw')!);
+  }
+
+  const url = new URL(req.url);
+
+  console.log('query params are', url.searchParams);
+  if (url.searchParams.has('throw')) {
+    throw new Error(url.searchParams.get('throw')!);
   }
 
   // filter out so that this is not triggered during subscription
@@ -143,6 +151,26 @@ function createAppRouter() {
         message: input,
       });
     }),
+    count: t.procedure
+      .input(
+        z.object({
+          from: z.number(),
+          count: z.number(),
+          throw: z.number().optional(),
+        })
+      )
+      .subscription(async function* ({ input, signal }) {
+        for (let i = input.from; i < input.from + input.count; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          if (signal?.aborted) {
+            return;
+          }
+          if (input.throw === i) {
+            throw new Error(i.toString());
+          }
+          yield i;
+        }
+      }),
   });
 
   return { appRouter, ee, onNewMessageSubscription, onSubscriptionEnded };
@@ -250,15 +278,32 @@ const linkSpy: TRPCLink<AppRouter> = () => {
 };
 
 interface ClientOptions {
+  connectionParams?: TRPCRequestInfo['connectionParams'];
+  onError?: (evt?: Event) => void;
+  queryParams?: Record<string, string>;
   headers?: HTTPHeaders;
   port: number;
+}
+
+function toQueryString(queryParams: Record<string, string>) {
+  const raw = new URLSearchParams(queryParams).toString();
+  return raw.length == 0 ? '' : `?${raw}`;
 }
 
 type ClientType = 'batchStreamWs' | 'batch' | 'sse';
 
 function createClientBatchStreamWs(opts: ClientOptions) {
-  const host = `localhost:${opts.port}${config.prefix}`;
-  const wsClient = createWSClient({ url: `ws://${host}` });
+  const qs = toQueryString(opts.queryParams ?? {});
+  const host = `localhost:${opts.port}${config.prefix}${qs}`;
+  const wsClient = createWSClient({
+    url: `ws://${host}`,
+    onError: opts.onError,
+    onClose: (asd) => {
+      console.log('onClose was called', asd);
+    },
+    connectionParams: opts.connectionParams,
+    retryDelayMs: () => 0,
+  });
   const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
@@ -280,7 +325,8 @@ function createClientBatchStreamWs(opts: ClientOptions) {
 }
 
 function createClientBatch(opts: ClientOptions) {
-  const host = `localhost:${opts.port}${config.prefix}`;
+  const qs = toQueryString(opts.queryParams ?? {});
+  const host = `localhost:${opts.port}${config.prefix}${qs}`;
   const client = createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
@@ -294,12 +340,14 @@ function createClientBatch(opts: ClientOptions) {
 }
 
 function createClientSSE(opts: ClientOptions) {
-  const host = `localhost:${opts.port}${config.prefix}`;
+  const qs = toQueryString(opts.queryParams ?? {});
+  const host = `localhost:${opts.port}${config.prefix}${qs}`;
   const client = createTRPCClient<AppRouter>({
     links: [
       // loggerLink(),
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
+        connectionParams: opts.connectionParams,
         // ponyfill EventSource
         EventSource: EventSourcePolyfill as any,
       }),
@@ -677,6 +725,62 @@ describe('server', () => {
       expect(app.ee.listenerCount('server:msg')).toBe(0);
       expect(app.ee.listenerCount('server:error')).toBe(0);
     });
+  });
+
+  test('subscription - handles throwing procedure', async () => {
+    const client = app.getClient('batchStreamWs');
+
+    let error: any = null;
+
+    client.count.subscribe(
+      {
+        from: 0,
+        count: 10,
+        throw: 5,
+      },
+      {
+        onError(err) {
+          error = err;
+        },
+      }
+    );
+
+    await vi.waitFor(() => {
+      expect(error).toEqual(new TRPCClientError('5'));
+    });
+  });
+
+  // the current websocket client just keeps on trying to reconnect
+  // no way to tell it to stop the reconnection
+  // and it never raises an error that connection could not be established
+  test.skip('subscription - handles throwing context', async () => {
+    let error: any = null;
+    const client = app.getClient('batchStreamWs', {
+      queryParams: {
+        throw: 'expected_context_error',
+      },
+      onError(evt) {
+        error = evt;
+      },
+    });
+
+    client.count.subscribe(
+      {
+        from: 0,
+        count: 10,
+      },
+      {}
+    );
+
+    await vi.waitFor(
+      () => {
+        console.log('error is', error);
+        expect(error).toEqual(new TRPCClientError('expected_context_error'));
+      },
+      {
+        timeout: 2000,
+      }
+    );
   });
 
   test('streaming', async () => {

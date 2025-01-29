@@ -188,21 +188,30 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         }),
       });
 
+      // TODO this needs to close the connection and stop everything
+      // client.end();
+
       // v10 workaround:
       // large timeout is needed in order for response above to reach the client
       // otherwise it tries to reconnect over and over again, even though the context throws
       // this is a rough edge of uWs
+      // setTimeout(() => {
+      //   if (data.res.aborted) {
+      //     return;
+      //   }
+      //   client.end();
+      // }, 1000);
+
+      // in v11 this seems to work well
+      // client.end will flush the error in respond() above before closing the connection
       setTimeout(() => {
         if (data.res.aborted) {
           return;
         }
         client.end();
-      }, 1000);
-
-      // original code
-      // (global.setImmediate ?? global.setTimeout)(() => {
-      //   client.end();
-      // });
+        // no mater whats the status code, trpc websocket still attemps to reconnect indefinately
+        // client.end(1008, 'bad context');
+      });
 
       throw error;
     });
@@ -244,7 +253,11 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           };
         }
       }
-      await ctxPromise; // asserts context has been set
+      try {
+        await ctxPromise; // asserts context has been set
+      } catch (err) {
+        return;
+      }
 
       const abortController = new AbortController();
       const result = await callProcedure({
@@ -491,17 +504,23 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       const data = client.getUserData();
 
-      // TODO: cleanup, this is not nice
+      // FIXME: this rethrows an error
+      // the connection should be closed when the createCtxPromise returns an error?
       data.ctxPromise =
+        // TODO: cleanup, this is not nice
         new URL(data.req.url).searchParams.get('connectionParams') === '1'
           ? unsetContextPromiseSymbol
           : createCtxPromise(client, () => null);
 
       if (data.ctxPromise !== unsetContextPromiseSymbol) {
-        await data.ctxPromise;
+        try {
+          await data.ctxPromise;
+        } catch (err: any) {
+          // this can throw, and connection will be terminated automatically
+          // so just return early
+          return;
+        }
       }
-
-      // console.log('client post-promise', data.ctx);
 
       // TODO: handle keepalive is here
       if (opts.keepAlive?.enabled) {
