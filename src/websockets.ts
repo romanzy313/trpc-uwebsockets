@@ -188,6 +188,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         }),
       });
 
+      // v10 workaround:
       // large timeout is needed in order for response above to reach the client
       // otherwise it tries to reconnect over and over again, even though the context throws
       // this is a rough edge of uWs
@@ -200,7 +201,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       // original code
       // (global.setImmediate ?? global.setTimeout)(() => {
-      // client.end()
+      //   client.end();
       // });
 
       throw error;
@@ -598,7 +599,6 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
   const prefix = opts.prefix ?? '';
 
   app.ws(prefix, behavior);
-  // app.ws(prefix + '/*', behavior);
 
   // opts.wss.on('connection', (client, req) => {
   //   if (opts.prefix && !req.url?.startsWith(opts.prefix)) {

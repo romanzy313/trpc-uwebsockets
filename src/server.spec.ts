@@ -20,7 +20,7 @@ import {
   wsLink,
 } from '@trpc/client';
 import type { HTTPHeaders, TRPCLink } from '@trpc/client';
-import { initTRPC } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { z } from 'zod';
@@ -39,6 +39,10 @@ const config = {
 
 function createContext({ req, res, info }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
+
+  if (req.headers.has('throw')) {
+    throw new Error(req.headers.get('throw')!);
+  }
 
   // filter out so that this is not triggered during subscription
   // but really, responseMeta should be used instead!
@@ -133,6 +137,12 @@ function createAppRouter() {
         );
         return opts.input.wait;
       }),
+    throw: t.procedure.input(z.string()).query(({ input }) => {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: input,
+      });
+    }),
   });
 
   return { appRouter, ee, onNewMessageSubscription, onSubscriptionEnded };
@@ -298,36 +308,31 @@ function createClientSSE(opts: ClientOptions) {
   return { client };
 }
 
-interface AppOptions {
-  clientOptions?: Partial<ClientOptions>;
-  serverOptions?: Partial<ServerOptions>;
-}
-
-async function createApp(opts: AppOptions = {}) {
+async function createApp(serverOptions?: Partial<ServerOptions>) {
   const { appRouter, ee } = createAppRouter();
   const { instance, port, stop } = createServer({
-    ...(opts.serverOptions ?? {}),
+    ...(serverOptions ?? {}),
     appRouter,
   });
 
   return {
     server: instance,
     stop,
-    getClient(clientType: ClientType) {
+    getClient(clientType: ClientType, clientOptions?: Partial<ClientOptions>) {
       switch (clientType) {
         case 'batchStreamWs':
           return createClientBatchStreamWs({
-            ...opts.clientOptions,
+            ...clientOptions,
             port,
           }).client;
         case 'batch':
           return createClientBatch({
-            ...opts.clientOptions,
+            ...clientOptions,
             port,
           }).client;
         case 'sse':
           return createClientSSE({
-            ...opts.clientOptions,
+            ...clientOptions,
             port,
           }).client;
         default:
@@ -336,7 +341,7 @@ async function createApp(opts: AppOptions = {}) {
     },
     ee,
     port,
-    opts,
+    opts: serverOptions,
   };
 }
 
@@ -353,7 +358,7 @@ describe('server', () => {
   });
 
   test('fetch GET smoke', async () => {
-    const req = await fetch(`http://localhost:${app.port}/hello`, {
+    const res = await fetch(`http://localhost:${app.port}/hello`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -361,16 +366,16 @@ describe('server', () => {
       },
     });
     // body should be object
-    expect(await req.text()).toEqual('Hello world');
+    expect(await res.text()).toEqual('Hello world');
   });
 
   test('response meta', async () => {
-    const fetcher = await fetch(
+    const res = await fetch(
       `http://localhost:${app.port}/trpc/ping?input=${encodeURI('{}')}`
     );
-    expect(fetcher.status).toEqual(200);
-    expect(fetcher.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
-    expect(fetcher.headers.get('x-test')).toEqual('true'); // from the context
+    expect(res.status).toEqual(200);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
+    expect(res.headers.get('x-test')).toEqual('true'); // from the context
   });
 
   // Vitest limitation...
@@ -513,6 +518,28 @@ describe('server', () => {
     expect(message.toString()).toBe('hello');
 
     client.close();
+  });
+
+  test('handles throwing procedure', async () => {
+    const client = app.getClient('batchStreamWs');
+    await expect(
+      client.throw.query('expected_procedure_error')
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `[TRPCClientError: expected_procedure_error]`
+    );
+  });
+
+  test('handles throwing context', async () => {
+    const client = app.getClient('batchStreamWs', {
+      headers: {
+        throw: 'expected_context_error',
+      },
+    });
+    await expect(
+      client.echo.query('hii')
+    ).rejects.toThrowErrorMatchingInlineSnapshot(
+      `[TRPCClientError: expected_context_error]`
+    );
   });
 
   // TODO: test failure of context as in v10
