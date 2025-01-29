@@ -10,80 +10,99 @@ Install the latest release candidate version with
 npm install trpc-uwebsockets@next
 ```
 
+TODO: specify peer dependencies and release candidate versioning strategy
+
 # Usage
 
+This full example can be found [here](/src/readme.spec.ts).
 
-
-Import needed packages
-
-```typescript
-import { App } from 'uWebSockets.js';
-import { inferAsyncReturnType, initTRPC } from '@trpc/server';
-import { CreateContextOptions } from 'trpc-uwebsockets';
+```ts
+import * as uWs from 'uWebSockets.js';
+import { initTRPC } from '@trpc/server';
+import {
+  applyRequestHandler,
+  applyWebsocketHandler,
+  CreateContextOptions,
+} from 'trpc-uwebsockets';
 import z from 'zod';
-```
 
-Define tRPC, context, and router
+// define context
+function createContext({ req, res, info }: CreateContextOptions) {
+  const user = { name: req.headers.get('username') || 'anonymous' };
+  return { req, res, user, info };
+}
+type Context = Awaited<ReturnType<typeof createContext>>;
 
-```typescript
 const t = initTRPC.context<Context>().create();
 
-const createContext = ({ req, res }: CreateContextOptions) => {
-  const getUser = () => {
-    if (req.headers.authorization === 'meow') {
-      return {
-        name: 'KATT',
-      };
-    }
-    return null;
-  };
-  return {
-    req,
-    res,
-    user: getUser(),
-  };
-};
-export type Context = inferAsyncReturnType<typeof createContext>;
-
-const router = t.router({
+// define app router
+const appRouter = t.router({
   hello: t.procedure
     .input(
       z
         .object({
-          who: z.string().nullish(),
+          username: z.string().nullish(),
         })
         .nullish()
     )
-    .query(({ input, ctx }) => {
-      return {
-        text: `hello ${input?.who ?? ctx.user?.name ?? 'world'}`,
-      };
+    .query(
+      ({ input, ctx }) =>
+        `hello ${input?.username ?? ctx.user?.name ?? 'world'}`
+    ),
+
+  count: t.procedure
+    .input(
+      z.object({
+        from: z.number(),
+        count: z.number(),
+      })
+    )
+    .subscription(async function* ({ input, signal }) {
+      for (let i = input.from; i < input.from + input.count; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        if (signal?.aborted) {
+          return;
+        }
+        yield i;
+      }
     }),
 });
-```
+export type AppRouter = typeof appRouter;
 
-Initialize uWebsockets server and attach tRPC
+// create uWebSockets server and attach trpc to it
+const app = uWs.App();
 
-```typescript
-const app = App();
-
-/* handle CORS as needed */
+// handle cors
 app.options('/*', (res) => {
-  res.writeHeader('Access-Control-Allow-Origin', allowOrigin);
+  res.writeHeader('Access-Control-Allow-Origin', '*');
   res.endWithoutBody();
 });
 
-createUWebSocketsHandler(app, '/trpc', {
-  router,
-  createContext,
-  // CORS part 2. See https://trpc.io/docs/server/caching for more information
-  responseMeta({ ctx, paths, type, errors }) {
-    return {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
-    };
+applyRequestHandler(app, {
+  prefix: '/trpc',
+  trpcOptions: {
+    router: appRouter,
+    createContext,
+    onError(data) {
+      // or send error to monitoring service
+      console.error('trpc error', data);
+    },
+    responseMeta() {
+      // attach additional headers on each response
+      return {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      };
+    },
   },
+});
+
+// add websockets support
+applyWebsocketHandler(app, {
+  prefix: '/trpc',
+  router: appRouter,
+  createContext,
 });
 
 /* dont crash on unknown request */
@@ -92,14 +111,94 @@ app.any('/*', (res) => {
   res.end();
 });
 
-app.listen('0.0.0.0', 8000, () => {
-  console.log('Server listening on http://localhost:8000');
+// listen on port 3000
+const stopServer = await new Promise<() => void>((resolve, reject) => {
+  app.listen('0.0.0.0', 3000, (socket) => {
+    if (socket === false) {
+      return reject(new Error('Server failed to listen on port 8000'));
+    }
+    resolve(() => {
+      uWs.us_listen_socket_close(socket);
+    });
+  });
 });
 ```
 
+# Client example
+
+```ts
+import { vi, test, expect, afterAll } from 'vitest';
+
+import {
+  createTRPCClient,
+  createWSClient,
+  splitLink,
+  unstable_httpBatchStreamLink,
+  wsLink,
+} from '@trpc/client';
+
+// close the server after the test
+afterAll(() => {
+  stopServer();
+});
+
+// configure TRPCClient to use WebSockets and BatchStreaming transport
+const client = createTRPCClient<AppRouter>({
+  links: [
+    splitLink({
+      condition(op) {
+        return op.type === 'subscription';
+      },
+      true: wsLink({
+        client: createWSClient({
+          url: `ws://localhost:3000/trpc`,
+        }),
+      }),
+      false: unstable_httpBatchStreamLink({
+        url: `http://localhost:3000/trpc`,
+      }),
+    }),
+  ],
+});
+
+test('query', async () => {
+  expect(await client.hello.query()).toEqual('hello anonymous');
+  expect(
+    await client.hello.query({
+      username: 'trpc',
+    })
+  ).toEqual('hello trpc');
+});
+
+test('subscription', async () => {
+  const results: number[] = [];
+  let done = false;
+  client.count.subscribe(
+    { from: 3, count: 5 },
+    {
+      onData(value) {
+        results.push(value);
+      },
+      onStopped() {
+        done = true;
+      },
+    }
+  );
+
+  await vi.waitFor(() => {
+    expect(done).toBe(true);
+  });
+
+  expect(results).toEqual([3, 4, 5, 6, 7]);
+});
+```
+
+
 # API
 
-Create context options
+TODO: question should this be here?
+
+This is outdated btw
 
 ```typescript
 type CreateContextOptions = {
@@ -116,63 +215,4 @@ type CreateContextOptions = {
     writeHeader(key: RecognizedString, value: RecognizedString): HttpResponse;
   };
 };
-```
-
-# Enabling subscrptions
-
-Simple method: enable subscriptions when creating the main handler.
-
-```typescript
-createUWebSocketsHandler(app, '/trpc', {
-  router,
-  createContext,
-  enableSubscriptions: true,
-});
-```
-
-Recommended method: enable subscriptions after registering main request handler.
-
-<!-- For example, cookies are not accessible inside WSHandler createContext, so in order to implement auth query string param with jwt needs to be implemented. -->
-
-```typescript
-const app = App();
-
-createUWebSocketsHandler(app, '/trpc', {
-  router,
-  createContext: ({ req, res }) => {},
-});
-
-applyWSHandler(app, '/trpc', {
-  router,
-  createContext: ({ req, res }) => {},
-});
-```
-
-## example of subscrption client
-
-```typescript
-import {
-  createTRPCProxyClient,
-  createWSClient,
-  httpBatchLink,
-  splitLink,
-  wsLink,
-} from '@trpc/client';
-
-const host = `localhost:8080/trpc`;
-const wsClient = createWSClient({ url: `ws://${host}` });
-const client = createTRPCProxyClient<AppRouter>({
-  links: [
-    splitLink({
-      condition(op) {
-        return op.type === 'subscription';
-      },
-      true: wsLink({ client: wsClient }),
-      false: httpBatchLink({
-        url: `http://${host}`,
-        headers: headers,
-      }),
-    }),
-  ],
-});
 ```
