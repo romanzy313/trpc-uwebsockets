@@ -1,14 +1,18 @@
 # trpc-uwebsockets
 
-[uWebSockets.js](https://github.com/uNetworking/uWebSockets.js) adapter for [tRPC](https://trpc.io/)
+[uWebSockets.js](https://github.com/uNetworking/uWebSockets.js) adapter for [tRPC version 11](https://trpc.io/). Check out [master branch](https://github.com/romanzy313/trpc-uwebsockets/tree/master) for version 10
 
 # Installation
 
+Install the latest release candidate version with
+
 ```bash
-npm install trpc-uwebsockets
+npm install trpc-uwebsockets@next
 ```
 
 # Usage
+
+
 
 Import needed packages
 

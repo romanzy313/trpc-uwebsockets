@@ -26,11 +26,12 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { z } from 'zod';
 
 import {
-  type HandlerOptions,
   type CreateContextOptions,
   applyRequestHandler,
+  CreateHandlerOptions,
 } from './requestHandler';
 import { applyWebsocketHandler } from './websockets';
+import { HttpResponseDecorated } from './fetchCompat';
 
 const config = {
   prefix: '/trpc',
@@ -154,7 +155,6 @@ function createServer(opts: ServerOptions) {
   applyRequestHandler(instance, {
     // useWSS: true, // TODO
     prefix: config.prefix,
-    useWebsockets: true,
     trpcOptions: {
       router,
       createContext,
@@ -168,7 +168,7 @@ function createServer(opts: ServerOptions) {
           },
         };
       },
-    } satisfies HandlerOptions<AppRouter>['trpcOptions'],
+    } satisfies CreateHandlerOptions<AppRouter>['trpcOptions'],
   });
   applyWebsocketHandler(instance, {
     prefix: config.prefix,
