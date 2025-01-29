@@ -26,17 +26,17 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { z } from 'zod';
 
 import {
-  type UWsHandlerOptions,
-  type CreateUWsContextOptions,
-  createUWebSocketsHandler,
+  type HandlerOptions,
+  type CreateContextOptions,
+  applyRequestHandler,
 } from './requestHandler';
-import { applyWebsocketsHandler } from './websockets';
+import { applyWebsocketHandler } from './websockets';
 
 const config = {
   prefix: '/trpc',
 };
 
-function createContext({ req, res, info }: CreateUWsContextOptions) {
+function createContext({ req, res, info }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
 
   // filter out so that this is not triggered during subscription
@@ -151,7 +151,7 @@ function createServer(opts: ServerOptions) {
 
   const router = opts.appRouter;
 
-  createUWebSocketsHandler(instance, {
+  applyRequestHandler(instance, {
     // useWSS: true, // TODO
     prefix: config.prefix,
     useWebsockets: true,
@@ -168,9 +168,9 @@ function createServer(opts: ServerOptions) {
           },
         };
       },
-    } satisfies UWsHandlerOptions<AppRouter>['trpcOptions'],
+    } satisfies HandlerOptions<AppRouter>['trpcOptions'],
   });
-  applyWebsocketsHandler(instance, {
+  applyWebsocketHandler(instance, {
     prefix: config.prefix,
     router,
     createContext,

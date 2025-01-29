@@ -589,7 +589,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
   };
 }
 
-export function applyWebsocketsHandler<TRouter extends AnyRouter>(
+export function applyWebsocketHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
   opts: WebsocketsHandlerOptions<TRouter>
 ) {

@@ -24,21 +24,21 @@ import {
   uWsToRequest,
 } from './fetchCompat';
 
-export interface CreateUwsHandlerOptions<TRouter extends AnyRouter> {
+export interface CreateHandlerOptions<TRouter extends AnyRouter> {
   prefix?: string;
   // middleware?: ConnectMiddleware; // TODO, or not needed?
-  trpcOptions: UWsHandlerOptions<TRouter, Request, HttpResponseDecorated>;
+  trpcOptions: HandlerOptions<TRouter, Request, HttpResponseDecorated>;
   maxBodySize?: number;
 }
 
-export type CreateUWsContextOptions = NodeHTTPCreateContextFnOptions<
+export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   Request,
   HttpResponseDecorated
 >;
 
-export function createUWebSocketsHandler<TRouter extends AnyRouter>(
+export function applyRequestHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
-  opts: CreateUwsHandlerOptions<TRouter>
+  opts: CreateHandlerOptions<TRouter>
 ) {
   const prefix = opts.prefix ?? '';
 
@@ -88,18 +88,18 @@ export function createUWebSocketsHandler<TRouter extends AnyRouter>(
   // }
 }
 
-export type UWsHandlerOptions<
+export type HandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends Request,
   TResponse extends HttpResponseDecorated,
 > = HTTPBaseHandlerOptions<TRouter, TRequest> &
   NodeHTTPCreateContextOption<TRouter, TRequest, TResponse>;
 
-type UWsRequestHandlerOptions<
+type RequestHandlerOptions<
   TRouter extends AnyRouter,
   TRequest extends Request,
   TResponse extends HttpResponseDecorated,
-> = UWsHandlerOptions<TRouter, TRequest, TResponse> & {
+> = HandlerOptions<TRouter, TRequest, TResponse> & {
   req: TRequest;
   res: TResponse;
   path: string;
@@ -110,7 +110,7 @@ export async function uWsRequestHandler<
   TRouter extends AnyRouter,
   TRequest extends Request,
   TResponse extends HttpResponseDecorated,
->(opts: UWsRequestHandlerOptions<TRouter, TRequest, TResponse>) {
+>(opts: RequestHandlerOptions<TRouter, TRequest, TResponse>) {
   const createContext: ResolveHTTPRequestOptionsContextFn<TRouter> = async (
     innerOpts
   ) => {
