@@ -291,7 +291,7 @@ function createClientSSE(opts: ClientOptions) {
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
         // ponyfill EventSource
-        EventSource: EventSourcePolyfill,
+        EventSource: EventSourcePolyfill as any,
       }),
     ],
   });

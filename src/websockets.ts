@@ -1,12 +1,11 @@
 import type {
-  HttpRequest,
   TemplatedApp,
   WebSocketBehavior,
   WebSocket,
 } from 'uWebSockets.js';
 
 type RemoveFunctions<T> = {
-  // TODO: suppress eslint
+  // eslint-disable-next-line @typescript-eslint/ban-types
   [K in keyof T as NonNullable<T[K]> extends Function ? never : K]: T[K];
 };
 

@@ -21,10 +21,10 @@
     "prepublishOnly": "yarn clean && yarn prettier && yarn lint && yarn test && yarn build",
     "clean": "rimraf -rf ./dist && rimraf -rf ./types && rimraf -rf ./*-*.tgz",
     "format": "yarn clean && yarn prettier && yarn lint",
-    "lint": "eslint . --ext .ts --fix",
-    "lint:dry": "eslint . --ext .ts",
-    "prettier": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "prettier:dry": "prettier --config .prettierrc 'src/**/*.ts'"
+    "lint": "eslint src/**/*.ts --fix",
+    "lint:dry": "eslint src/**/*.ts",
+    "prettier": "prettier src/**/*.ts --config .prettierrc --write",
+    "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
     "@trpc/server": "11.0.0-rc.730",

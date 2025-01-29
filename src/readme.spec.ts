@@ -96,7 +96,6 @@ app.any('/*', (res) => {
 });
 
 // listen on port 3000
-// @ts-expect-error top level await is okay
 const stopServer = await new Promise<() => void>((resolve, reject) => {
   app.listen('0.0.0.0', 3000, (socket) => {
     if (socket === false) {
