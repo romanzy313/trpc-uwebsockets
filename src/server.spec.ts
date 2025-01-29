@@ -49,21 +49,21 @@ function createContext({ req, res, info }: CreateContextOptions) {
     // throw new Error(req.headers.get('throw')!);
   }
 
-  // for websocket context setting after connection
+  // for websocket context throwing after connection
   if (info.connectionParams?.throw) {
-    console.log('connection param is throwing', info.connectionParams?.throw);
-    // throw new Error(info.connectionParams?.throw);
-
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: info.connectionParams?.throw,
     });
   }
 
-  // for websocket context setting during connection
+  // for websocket context throwing during connection
   const url = new URL(req.url);
   if (url.searchParams.has('throw')) {
-    throw new Error(url.searchParams.get('throw')!);
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: url.searchParams.get('throw')!,
+    });
   }
   // filter out so that this is not triggered during subscription
   // but really, responseMeta should be used instead!
@@ -293,6 +293,7 @@ const linkSpy: TRPCLink<AppRouter> = () => {
 interface ClientOptions {
   connectionParams?: TRPCRequestInfo['connectionParams'];
   onError?: (evt?: Event) => void;
+  onClose?: (cause?: { code?: number }) => void;
   queryParams?: Record<string, string>;
   headers?: HTTPHeaders;
   port: number;
@@ -303,38 +304,38 @@ function toQueryString(queryParams: Record<string, string>) {
   return raw.length == 0 ? '' : `?${raw}`;
 }
 
-type ClientType = 'batchStreamWs' | 'batch' | 'sse';
-
-function createClientBatchStreamWs(opts: ClientOptions) {
+function createClientWs(opts: ClientOptions) {
   const qs = toQueryString(opts.queryParams ?? {});
   const host = `localhost:${opts.port}${config.prefix}${qs}`;
   const wsClient = createWSClient({
     url: `ws://${host}`,
+    // onError: opts.onError,
     onError: opts.onError,
-    onClose: (asd) => {
-      console.error('onClose was called', asd);
-    },
+    onClose: opts.onClose,
     connectionParams: opts.connectionParams,
-    retryDelayMs: () => 1000,
+    retryDelayMs: () => 99999, // never retry
   });
+  const client = createTRPCClient<AppRouter>({
+    links: [linkSpy, wsLink({ client: wsClient })],
+  });
+
+  return { client, wsClient };
+}
+
+function createClientBatchStream(opts: ClientOptions) {
+  const qs = toQueryString(opts.queryParams ?? {});
+  const host = `localhost:${opts.port}${config.prefix}${qs}`;
   const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
-      // loggerLink(),
-      splitLink({
-        condition(op) {
-          return op.type === 'subscription';
-        },
-        true: wsLink({ client: wsClient }),
-        false: unstable_httpBatchStreamLink({
-          url: `http://${host}`,
-          headers: opts.headers,
-        }),
+      unstable_httpBatchStreamLink({
+        url: `http://${host}`,
+        headers: opts.headers,
       }),
     ],
   });
 
-  return { client, wsClient };
+  return { client };
 }
 
 function createClientBatch(opts: ClientOptions) {
@@ -368,7 +369,7 @@ function createClientSSE(opts: ClientOptions) {
   });
   return { client };
 }
-
+type ClientType = 'batchStream' | 'batch' | 'sse' | 'ws';
 async function createApp(serverOptions?: Partial<ServerOptions>) {
   const { appRouter, ee } = createAppRouter();
   const { instance, port, stop } = createServer({
@@ -381,24 +382,53 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
     stop,
     getClient(clientType: ClientType, clientOptions?: Partial<ClientOptions>) {
       switch (clientType) {
-        case 'batchStreamWs':
-          return createClientBatchStreamWs({
+        case 'batchStream':
+          return createClientBatchStream({
             ...clientOptions,
             port,
-          }).client;
+          });
         case 'batch':
           return createClientBatch({
             ...clientOptions,
             port,
-          }).client;
+          });
         case 'sse':
           return createClientSSE({
             ...clientOptions,
             port,
-          }).client;
+          });
+        case 'ws':
+          return createClientWs({
+            ...clientOptions,
+            port,
+          });
         default:
           throw new Error('unknown client');
       }
+    },
+    getClientBatchStream(clientOptions?: Partial<ClientOptions>) {
+      return createClientBatchStream({
+        ...clientOptions,
+        port,
+      });
+    },
+    getClientBatch(clientOptions?: Partial<ClientOptions>) {
+      return createClientBatch({
+        ...clientOptions,
+        port,
+      });
+    },
+    getClientSee(clientOptions?: Partial<ClientOptions>) {
+      return createClientSSE({
+        ...clientOptions,
+        port,
+      });
+    },
+    getClientWs(clientOptions?: Partial<ClientOptions>) {
+      return createClientWs({
+        ...clientOptions,
+        port,
+      });
     },
     ee,
     port,
@@ -441,7 +471,8 @@ describe('server', () => {
 
   test('query', async () => {
     {
-      const client = app.getClient('batchStreamWs');
+      // batch stream
+      const { client } = app.getClientBatchStream();
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -460,7 +491,8 @@ describe('server', () => {
     }
 
     {
-      const client = app.getClient('batch');
+      // batch
+      const { client } = app.getClientBatch();
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -481,7 +513,8 @@ describe('server', () => {
 
   test('mutation', async () => {
     {
-      const client = app.getClient('batchStreamWs');
+      // batch stream
+      const { client } = app.getClientBatchStream();
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -495,7 +528,8 @@ describe('server', () => {
     }
 
     {
-      const client = app.getClient('batch');
+      // batch
+      const { client } = app.getClientBatch();
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -510,7 +544,7 @@ describe('server', () => {
   });
 
   test('streaming', async () => {
-    const client = app.getClient('batchStreamWs');
+    const { client } = app.getClientBatchStream();
     const results = await Promise.all([
       client.deferred.query({ wait: 3 }),
       client.deferred.query({ wait: 1 }),
@@ -522,7 +556,8 @@ describe('server', () => {
 
   test('batched requests in body work correctly', async () => {
     {
-      const client = app.getClient('batch');
+      // batch stream
+      const { client } = app.getClientBatchStream();
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -532,7 +567,8 @@ describe('server', () => {
     }
 
     {
-      const client = app.getClient('batchStreamWs');
+      //batch
+      const { client } = app.getClientBatch();
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -567,7 +603,8 @@ describe('server', () => {
   });
 
   test('handles throwing procedure', async () => {
-    const client = app.getClient('batchStreamWs');
+    // batch stream
+    const { client } = app.getClientBatchStream();
     await expect(
       client.throw.query('expected_procedure_error')
     ).rejects.toThrowErrorMatchingInlineSnapshot(
@@ -576,7 +613,7 @@ describe('server', () => {
   });
 
   test('handles throwing context', async () => {
-    const client = app.getClient('batchStreamWs', {
+    const { client } = app.getClientBatchStream({
       headers: {
         throw: 'expected_context_error',
       },
@@ -591,7 +628,7 @@ describe('server', () => {
   // TODO: test failure of context as in v10
 
   test('subscription - websocket', async () => {
-    const client = app.getClient('batchStreamWs');
+    const { client } = app.getClientWs();
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -657,7 +694,7 @@ describe('server', () => {
   });
 
   test('subscription - sse', { timeout: 5000 }, async () => {
-    const client = app.getClient('sse');
+    const { client } = app.getClientSee();
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -726,7 +763,7 @@ describe('server', () => {
   });
 
   test('subscription - handles throwing procedure', async () => {
-    const client = app.getClient('batchStreamWs');
+    const { client } = app.getClientWs();
 
     let error: any = null;
 
@@ -751,15 +788,15 @@ describe('server', () => {
   // the current websocket client just keeps on trying to reconnect
   // no way to tell it to stop the reconnection
   // and it never raises an error that connection could not be established
-  test('subscription - handles throwing context', async () => {
-    let error: any = null;
+  test('subscription - handles throwing context - with connection params', async () => {
+    let closeCode: number | undefined = undefined;
 
-    const client = app.getClient('batchStreamWs', {
+    const { client } = app.getClientWs({
       connectionParams: {
         throw: 'expected_context_error',
       },
-      onError(evt) {
-        error = evt;
+      onClose(cause) {
+        closeCode = cause?.code;
       },
     });
 
@@ -768,22 +805,36 @@ describe('server', () => {
         from: 0,
         count: 10,
       },
-      {
-        onError(err) {
-          error = err;
-        },
-      }
+      {}
     );
 
-    await vi.waitFor(
-      () => {
-        console.log('error is', error);
-        expect(error).toEqual(new TRPCClientError('expected_context_error'));
+    await vi.waitFor(() => {
+      expect(closeCode).toEqual(1008);
+    });
+  });
+
+  test('subscription - handles throwing context - without connection params', async () => {
+    let closeCode: number | undefined = undefined;
+
+    const { client } = app.getClientWs({
+      queryParams: {
+        throw: 'expected_context_error',
       },
+      onClose(cause) {
+        closeCode = cause?.code;
+      },
+    });
+
+    client.count.subscribe(
       {
-        timeout: 2000,
-        interval: 1000,
-      }
+        from: 0,
+        count: 10,
+      },
+      {}
     );
+
+    await vi.waitFor(() => {
+      expect(closeCode).toEqual(1008);
+    });
   });
 });

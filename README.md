@@ -218,6 +218,7 @@ type CreateContextOptions = {
 ```
 
 # TODOS:
+ - Fix unhandled errors when websocket context throws
  - Implement websocket keepAlive feature
  - Make "aborted requests are handled" less flaky
  - General cleanup of websocket implementation

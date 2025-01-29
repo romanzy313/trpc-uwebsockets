@@ -119,14 +119,16 @@ type Decoration = {
   res: HttpResponseDecorated;
   clientSubscriptions: Map<number | string, AbortController>;
   abortController: AbortController;
-  ctxPromise:
-    | typeof unsetContextPromiseSymbol
-    | Promise<inferRouterContext<AnyRouter>>
-    | undefined; // undefined is needed so that context is set when connection is openned
-  ctx: inferRouterContext<AnyRouter> | undefined; // TODO: chec kif untyped is okay?
+  useConnectionParams: boolean;
+  contextResolveAttempted: boolean;
+  // ctxPromise:
+  //   | typeof unsetContextPromiseSymbol
+  //   | Promise<inferRouterContext<AnyRouter>>
+  //   | undefined; // undefined is needed so that context is set when connection is openned
+  ctx: inferRouterContext<AnyRouter> | null; // TODO: chec kif untyped is okay?
 };
 
-const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
+// const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
 export function getWSConnectionHandler<TRouter extends AnyRouter>(
   opts: WebsocketsHandlerOptions<TRouter>,
   allClients: Set<WebSocket<Decoration>>
@@ -145,12 +147,18 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     );
   }
 
-  function createCtxPromise(
+  // this deviates from standard implementation
+  // this function returns true is context was resolved and set
+  // it returns false if context threw, and execution must be halted.
+  // this function will cleanup the connection
+  async function tryResolveContext(
     client: WebSocket<Decoration>,
     getConnectionParams: () => TRPCRequestInfo['connectionParams']
-  ): Promise<inferRouterContext<TRouter>> {
+  ): Promise<boolean> {
     const data = client.getUserData();
-    return run(async () => {
+    data.contextResolveAttempted = true;
+
+    try {
       data.ctx = await createContext?.({
         req: data.req,
         // res: client, // OG
@@ -164,9 +172,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           signal: data.abortController.signal,
         },
       });
-
-      return data.ctx;
-    }).catch((cause) => {
+      return true;
+    } catch (cause) {
+      // console.error('could not resolve context, cause', cause);
       const error = getTRPCErrorFromUnknown(cause);
       opts.onError?.({
         error,
@@ -188,9 +196,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         }),
       });
 
-      // TODO this needs to close the connection and stop everything
-      // client.end();
-
       // v10 workaround:
       // large timeout is needed in order for response above to reach the client
       // otherwise it tries to reconnect over and over again, even though the context throws
@@ -205,24 +210,23 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       // in v11 this seems to work well
       // client.end will flush the error in respond() above before closing the connection
       setTimeout(() => {
-        if (data.res.aborted) {
-          return;
-        }
-        client.end();
-        // no mater whats the status code, trpc websocket still attemps to reconnect indefinately
-        // client.end(1008, 'bad context');
+        // console.log('attempting to stop the client as context is bad');
+
+        // trpc bug:
+        // no mater whats the status code, trpc websocket still attemps to reconnect indefinitely
+        // i chose 1008 as due to https://datatracker.ietf.org/doc/html/rfc6455#section-7.4
+        client.end(1008, 'bad context');
       });
 
-      throw error;
-    });
+      return false;
+    }
   }
 
   async function handleRequest(
     client: WebSocket<Decoration>,
     msg: TRPCClientOutgoingMessage
   ) {
-    const { clientSubscriptions, ctx, ctxPromise, req, res } =
-      client.getUserData();
+    const { clientSubscriptions, ctx, req, res } = client.getUserData();
 
     const { id, jsonrpc } = msg;
 
@@ -253,11 +257,11 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           };
         }
       }
-      try {
-        await ctxPromise; // asserts context has been set
-      } catch (err) {
-        return;
+
+      if (ctx === null) {
+        throw new Error('assertion: context should never be null');
       }
+      // await ctxPromise; // asserts context has been set
 
       const abortController = new AbortController();
       const result = await callProcedure({
@@ -297,6 +301,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         });
       }
 
+      // this is not needed
       if (res.aborted) {
         return;
       }
@@ -487,8 +492,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         abortController,
         req: reqFetch,
         res: resDecorated,
-        ctx: undefined,
-        ctxPromise: undefined, // major change from the ws implementation
+        ctx: null,
+        contextResolveAttempted: false,
+        useConnectionParams: false,
       };
 
       res.upgrade(
@@ -504,22 +510,13 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       const data = client.getUserData();
 
-      // FIXME: this rethrows an error
-      // the connection should be closed when the createCtxPromise returns an error?
-      data.ctxPromise =
-        // TODO: cleanup, this is not nice
-        new URL(data.req.url).searchParams.get('connectionParams') === '1'
-          ? unsetContextPromiseSymbol
-          : createCtxPromise(client, () => null);
+      data.useConnectionParams =
+        new URL(data.req.url).searchParams.get('connectionParams') === '1';
 
-      if (data.ctxPromise !== unsetContextPromiseSymbol) {
-        try {
-          await data.ctxPromise;
-        } catch (err: any) {
-          // this can throw, and connection will be terminated automatically
-          // so just return early
-          return;
-        }
+      if (!data.useConnectionParams) {
+        const ok = await tryResolveContext(client, () => null);
+
+        if (!ok) return;
       }
 
       // TODO: handle keepalive is here
@@ -533,6 +530,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       // const msgStr = rawMsg.toString(); // or could do this ;
       const msgStr = Buffer.from(rawMsg).toString();
+
       if (msgStr === 'PONG') {
         return;
       }
@@ -543,9 +541,13 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         return;
       }
 
-      if (data.ctxPromise === unsetContextPromiseSymbol) {
-        // If the ctxPromise wasn't created immediately, we're expecting the first message to be a TRPCConnectionParamsMessage
-        data.ctxPromise = createCtxPromise(client, () => {
+      if (data.useConnectionParams && !data.contextResolveAttempted) {
+        if (data.ctx !== null) {
+          // TODO: just in case for now, this can be removed later
+          throw new Error('assertion: context should not be null');
+        }
+
+        const ok = await tryResolveContext(client, () => {
           let msg;
           try {
             msg = JSON.parse(msgStr) as TRPCConnectionParamsMessage;
@@ -565,7 +567,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
           return connectionParams;
         });
-        return;
+
+        if (!ok) return;
       }
 
       try {
