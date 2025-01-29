@@ -49,13 +49,22 @@ function createContext({ req, res, info }: CreateContextOptions) {
     // throw new Error(req.headers.get('throw')!);
   }
 
+  // for websocket context setting after connection
   if (info.connectionParams?.throw) {
+    console.log('connection param is throwing', info.connectionParams?.throw);
+    // throw new Error(info.connectionParams?.throw);
+
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: info.connectionParams?.throw,
     });
   }
 
+  // for websocket context setting during connection
+  const url = new URL(req.url);
+  if (url.searchParams.has('throw')) {
+    throw new Error(url.searchParams.get('throw')!);
+  }
   // filter out so that this is not triggered during subscription
   // but really, responseMeta should be used instead!
   if (info.type === 'query') {
