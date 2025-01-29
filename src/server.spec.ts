@@ -406,30 +406,6 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
           throw new Error('unknown client');
       }
     },
-    getClientBatchStream(clientOptions?: Partial<ClientOptions>) {
-      return createClientBatchStream({
-        ...clientOptions,
-        port,
-      });
-    },
-    getClientBatch(clientOptions?: Partial<ClientOptions>) {
-      return createClientBatch({
-        ...clientOptions,
-        port,
-      });
-    },
-    getClientSee(clientOptions?: Partial<ClientOptions>) {
-      return createClientSSE({
-        ...clientOptions,
-        port,
-      });
-    },
-    getClientWs(clientOptions?: Partial<ClientOptions>) {
-      return createClientWs({
-        ...clientOptions,
-        port,
-      });
-    },
     ee,
     port,
     opts: serverOptions,
@@ -472,7 +448,7 @@ describe('server', () => {
   test('query', async () => {
     {
       // batch stream
-      const { client } = app.getClientBatchStream();
+      const { client } = app.getClient('batchStream');
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -492,7 +468,7 @@ describe('server', () => {
 
     {
       // batch
-      const { client } = app.getClientBatch();
+      const { client } = app.getClient('batch');
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -514,7 +490,7 @@ describe('server', () => {
   test('mutation', async () => {
     {
       // batch stream
-      const { client } = app.getClientBatchStream();
+      const { client } = app.getClient('batchStream');
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -529,7 +505,7 @@ describe('server', () => {
 
     {
       // batch
-      const { client } = app.getClientBatch();
+      const { client } = app.getClient('batch');
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -544,7 +520,7 @@ describe('server', () => {
   });
 
   test('streaming', async () => {
-    const { client } = app.getClientBatchStream();
+    const { client } = app.getClient('batchStream');
     const results = await Promise.all([
       client.deferred.query({ wait: 3 }),
       client.deferred.query({ wait: 1 }),
@@ -557,7 +533,7 @@ describe('server', () => {
   test('batched requests in body work correctly', async () => {
     {
       // batch stream
-      const { client } = app.getClientBatchStream();
+      const { client } = app.getClient('batchStream');
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -568,7 +544,7 @@ describe('server', () => {
 
     {
       //batch
-      const { client } = app.getClientBatch();
+      const { client } = app.getClient('batch');
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -604,7 +580,7 @@ describe('server', () => {
 
   test('handles throwing procedure', async () => {
     // batch stream
-    const { client } = app.getClientBatchStream();
+    const { client } = app.getClient('batchStream');
     await expect(
       client.throw.query('expected_procedure_error')
     ).rejects.toThrowErrorMatchingInlineSnapshot(
@@ -613,7 +589,7 @@ describe('server', () => {
   });
 
   test('handles throwing context', async () => {
-    const { client } = app.getClientBatchStream({
+    const { client } = app.getClient('batchStream', {
       headers: {
         throw: 'expected_context_error',
       },
@@ -628,7 +604,7 @@ describe('server', () => {
   // TODO: test failure of context as in v10
 
   test('subscription - websocket', async () => {
-    const { client } = app.getClientWs();
+    const { client } = app.getClient('ws');
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -694,7 +670,7 @@ describe('server', () => {
   });
 
   test('subscription - sse', { timeout: 5000 }, async () => {
-    const { client } = app.getClientSee();
+    const { client } = app.getClient('sse');
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -763,7 +739,7 @@ describe('server', () => {
   });
 
   test('subscription - handles throwing procedure', async () => {
-    const { client } = app.getClientWs();
+    const { client } = app.getClient('ws');
 
     let error: any = null;
 
@@ -791,7 +767,7 @@ describe('server', () => {
   test('subscription - handles throwing context - with connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClientWs({
+    const { client } = app.getClient('ws', {
       connectionParams: {
         throw: 'expected_context_error',
       },
@@ -816,7 +792,7 @@ describe('server', () => {
   test('subscription - handles throwing context - without connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClientWs({
+    const { client } = app.getClient('ws', {
       queryParams: {
         throw: 'expected_context_error',
       },
