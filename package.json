@@ -48,6 +48,9 @@
     "ws": "^8.14.1",
     "zod": "^3.22.4"
   },
+  "resolutions": {
+    "strip-ansi": "6.0.1"
+  },
   "files": [
     "dist",
     "src",
