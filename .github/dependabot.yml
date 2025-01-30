@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    target-branch: 'v11'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    allow:
+      - dependency-name: '@trpc/server'
+      - dependency-name: '@trpc/client'
+    versioning-strategy: increase
+    groups:
+      trpc-packages:
+        patterns:
+          - '@trpc/*'
