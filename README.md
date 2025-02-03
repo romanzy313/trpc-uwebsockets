@@ -10,11 +10,13 @@ Version 10
 npm install trpc-uwebsockets
 ```
 
-Version 11 beta (same as next branch of trpc)
+Version 11
 
 ```bash
-npm install trpc-uwebsockets@beta
+npm install trpc-uwebsockets@next
 ```
+
+Check out [v11 branch](https://github.com/romanzy313/trpc-uwebsockets/tree/v11) for documentation.
 
 # Usage
 
@@ -73,7 +75,7 @@ const app = App();
 
 /* handle CORS as needed */
 app.options('/*', (res) => {
-  res.writeHeader('Access-Control-Allow-Origin', allowOrigin);
+  res.writeHeader('Access-Control-Allow-Origin', '*');
   res.endWithoutBody();
 });
 
