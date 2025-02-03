@@ -451,17 +451,16 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
 }
 
 let app: Awaited<ReturnType<typeof createApp>>;
+beforeEach(async () => {
+  orderedResults.length = 0;
+  app = await createApp();
+});
+
+afterEach(() => {
+  app.stop();
+});
 
 describe('server', () => {
-  beforeEach(async () => {
-    orderedResults.length = 0;
-    app = await createApp();
-  });
-
-  afterEach(() => {
-    app.stop();
-  });
-
   test('fetch GET smoke', async () => {
     const res = await fetch(`http://localhost:${app.port}/hello`, {
       method: 'GET',
@@ -641,72 +640,6 @@ describe('server', () => {
 
   // TODO: test failure of context as in v10
 
-  test('subscription - websocket', async () => {
-    const { client } = app.getClient('ws');
-
-    app.ee.once('subscription:created', () => {
-      setTimeout(() => {
-        app.ee.emit('server:msg', {
-          id: '1',
-        });
-        app.ee.emit('server:msg', {
-          id: '2',
-        });
-      });
-    });
-
-    const onStartedMock = vi.fn();
-    const onDataMock = vi.fn();
-    const sub = client.onMessage.subscribe('onMessage', {
-      onStarted: onStartedMock,
-      onData(data) {
-        expectTypeOf(data).not.toBeAny();
-        expectTypeOf(data).toMatchTypeOf<Message>();
-        onDataMock(data);
-      },
-    });
-
-    await vi.waitFor(() => {
-      expect(onStartedMock).toHaveBeenCalledTimes(1);
-      expect(onDataMock).toHaveBeenCalledTimes(2);
-    });
-
-    app.ee.emit('server:msg', {
-      id: '3',
-    });
-
-    await vi.waitFor(() => {
-      expect(onDataMock).toHaveBeenCalledTimes(3);
-    });
-
-    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
-      Array [
-        Array [
-          Object {
-            "id": "1",
-          },
-        ],
-        Array [
-          Object {
-            "id": "2",
-          },
-        ],
-        Array [
-          Object {
-            "id": "3",
-          },
-        ],
-      ]
-    `);
-
-    sub.unsubscribe();
-
-    await vi.waitFor(() => {
-      expect(app.ee.listenerCount('server:msg')).toBe(0);
-      expect(app.ee.listenerCount('server:error')).toBe(0);
-    });
-  });
-
   test('subscription - sse', { timeout: 5000 }, async () => {
     const { client } = app.getClient('sse');
 
@@ -775,8 +708,76 @@ describe('server', () => {
       expect(app.ee.listenerCount('server:error')).toBe(0);
     });
   });
+});
 
-  test('subscription - handles throwing procedure', async () => {
+describe('websocket', () => {
+  test('basic functionality', async () => {
+    const { client } = app.getClient('ws');
+
+    app.ee.once('subscription:created', () => {
+      setTimeout(() => {
+        app.ee.emit('server:msg', {
+          id: '1',
+        });
+        app.ee.emit('server:msg', {
+          id: '2',
+        });
+      });
+    });
+
+    const onStartedMock = vi.fn();
+    const onDataMock = vi.fn();
+    const sub = client.onMessage.subscribe('onMessage', {
+      onStarted: onStartedMock,
+      onData(data) {
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        onDataMock(data);
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(onStartedMock).toHaveBeenCalledTimes(1);
+      expect(onDataMock).toHaveBeenCalledTimes(2);
+    });
+
+    app.ee.emit('server:msg', {
+      id: '3',
+    });
+
+    await vi.waitFor(() => {
+      expect(onDataMock).toHaveBeenCalledTimes(3);
+    });
+
+    expect(onDataMock.mock.calls).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          Object {
+            "id": "1",
+          },
+        ],
+        Array [
+          Object {
+            "id": "2",
+          },
+        ],
+        Array [
+          Object {
+            "id": "3",
+          },
+        ],
+      ]
+    `);
+
+    sub.unsubscribe();
+
+    await vi.waitFor(() => {
+      expect(app.ee.listenerCount('server:msg')).toBe(0);
+      expect(app.ee.listenerCount('server:error')).toBe(0);
+    });
+  });
+
+  test('handles throwing procedure', async () => {
     const { client } = app.getClient('ws');
 
     let error: any = null;
@@ -799,10 +800,7 @@ describe('server', () => {
     });
   });
 
-  // the current websocket client just keeps on trying to reconnect
-  // no way to tell it to stop the reconnection
-  // and it never raises an error that connection could not be established
-  test('subscription - handles throwing context - with connection params', async () => {
+  test('handles throwing context with connection params', async () => {
     let closeCode: number | undefined = undefined;
 
     const { client } = app.getClient('ws', {
@@ -827,7 +825,7 @@ describe('server', () => {
     });
   });
 
-  test('subscription - handles throwing context - without connection params', async () => {
+  test('handles throwing context without connection params', async () => {
     let closeCode: number | undefined = undefined;
 
     const { client } = app.getClient('ws', {
@@ -853,7 +851,7 @@ describe('server', () => {
   });
 
   // for some reason client.publish does not work, even though it should
-  test('subscription - websocket - client works', { skip: true }, async () => {
+  test('uWebsockets pubsub', { skip: true }, async () => {
     const clientWs = new WebSocket(`ws://localhost:${app.port}/pubsub`);
 
     const messages: string[] = [];
