@@ -44,7 +44,7 @@ const appRouter = t.router({
         count: z.number(),
       })
     )
-    .subscription(async function* ({ input, ctx, signal }) {
+    .subscription(async function* ({ input, signal }) {
       // client on context is guaranteed to be not null:
       // ctx.client!.publish('topic', 'message')
 

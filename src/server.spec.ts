@@ -892,9 +892,9 @@ describe('websocket', () => {
       expect(connected).toBe(true);
     });
 
-    console.log('num subscribers', app.server.numSubscribers('topic'));
+    expect(app.server.numSubscribers('topic')).toBe(1);
 
-    const { client } = app.getClient('ws');
+    const { client } = app.getClientWs();
     const sub = client.pubSub.subscribe(null, {
       onData(data) {
         console.log('trpc onMessage', data);
