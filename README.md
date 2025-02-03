@@ -10,7 +10,7 @@ Install the latest release candidate version with
 npm install trpc-uwebsockets@next
 ```
 
-TODO: specify peer dependencies and release candidate versioning strategy
+The versioning of the adapter follows the versioning scheme of trpc. For example, for the `@trpc/server` version of `11.0.0-rc.730`, the npm package for `trpc-uwebsockets` will have version `11.0.0-rc.730.X`, where X is incrementing library version. Ensure that the version of `@trpc/server` and `@trpc/client` matches the version of `trpc-uwebsockets`.
 
 # Usage
 
@@ -193,34 +193,8 @@ test('subscription', async () => {
 });
 ```
 
-
-# API
-
-TODO: question should this be here?
-
-This is outdated btw
-
-```typescript
-type CreateContextOptions = {
-  /* read-only request information */
-  req: {
-    headers: Record<string, string>;
-    method: 'POST' | 'GET';
-    query: URLSearchParams;
-    path: string;
-  };
-  /* see https://unetworking.github.io/uWebSockets.js/generated/interfaces/HttpResponse.html */
-  res: {
-    writeStatus(status: RecognizedString): HttpResponse;
-    writeHeader(key: RecognizedString, value: RecognizedString): HttpResponse;
-  };
-};
-```
-
 # TODOS:
- - Fix unhandled errors when websocket context throws
  - Implement websocket keepAlive feature
  - Make "aborted requests are handled" less flaky
  - General cleanup of websocket implementation
- - Specify versioning strategy
  - Add client to the websocket context
