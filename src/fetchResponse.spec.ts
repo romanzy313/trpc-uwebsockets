@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { test, expect, describe } from 'vitest';
 import uWs from 'uWebSockets.js';
 

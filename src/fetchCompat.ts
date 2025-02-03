@@ -1,6 +1,5 @@
 import { HttpResponse, HttpRequest } from 'uWebSockets.js';
 import { TRPCError } from '@trpc/server';
-import { isAbortError } from '@trpc/server/unstable-core-do-not-import';
 
 // this implements uWs compatibility with fetch api as its needed for v11 of trpc
 // mostly following /trpc/packages/server/src/adapters/node-http/incomingMessageToRequest.ts
