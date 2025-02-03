@@ -1,4 +1,8 @@
-export { applyWebsocketHandler, WebsocketsHandlerOptions } from './websockets';
+export {
+  applyWebsocketHandler,
+  WebsocketsHandlerOptions,
+  WebSocketConnection,
+} from './websockets';
 export {
   applyRequestHandler,
   CreateContextOptions,

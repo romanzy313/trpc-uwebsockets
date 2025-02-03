@@ -1,4 +1,9 @@
-import type { TemplatedApp, HttpRequest, HttpResponse } from 'uWebSockets.js';
+import type {
+  TemplatedApp,
+  HttpRequest,
+  HttpResponse,
+  WebSocket,
+} from 'uWebSockets.js';
 
 import {
   // type NodeHTTPCreateContextFnOption,
@@ -23,6 +28,7 @@ import {
   uWsSendResponseStreamed,
   uWsToRequest,
 } from './fetchCompat';
+import { WebSocketConnection } from './websockets';
 
 export interface CreateHandlerOptions<TRouter extends AnyRouter> {
   prefix?: string;
@@ -34,7 +40,12 @@ export interface CreateHandlerOptions<TRouter extends AnyRouter> {
 export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   Request,
   HttpResponseDecorated
->;
+> & {
+  /*
+    optional client which must be set when context is created for websockets
+  */
+  client?: WebSocketConnection;
+};
 
 export function applyRequestHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,

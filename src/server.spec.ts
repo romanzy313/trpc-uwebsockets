@@ -31,14 +31,14 @@ import {
   applyRequestHandler,
   CreateHandlerOptions,
 } from './requestHandler';
-import { applyWebsocketHandler } from './websockets';
+import { applyWebsocketHandler, CreateWSSContextFnOptions } from './websockets';
 import { TRPCRequestInfo } from '@trpc/server/http';
 
 const config = {
   prefix: '/trpc',
 };
 
-function createContext({ req, res, info }: CreateContextOptions) {
+function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
 
   if (req.headers.has('throw')) {
@@ -65,12 +65,13 @@ function createContext({ req, res, info }: CreateContextOptions) {
       message: url.searchParams.get('throw')!,
     });
   }
+
   // filter out so that this is not triggered during subscription
   // but really, responseMeta should be used instead!
   if (info.type === 'query') {
     res.writeHeader('x-test', 'true');
   }
-  return { req, res, user, info };
+  return { req, res, user, info, client };
 }
 
 type Context = Awaited<ReturnType<typeof createContext>>;
@@ -139,6 +140,33 @@ function createAppRouter() {
       });
       ee.emit('subscription:created');
       onNewMessageSubscription();
+      return sub;
+    }),
+    pubSub: publicProcedure.input(z.null()).subscription(({ ctx }) => {
+      if (!ctx.client) {
+        throw new Error('assertion: client should never be null in websockets');
+      }
+      const client = ctx.client!;
+      // for some reason client.publish does not work...
+      // currently okay is false, not sure why uWs behaves this way
+      // publishing from the server works though
+      // app.server.publish('topic', 'created2');
+      const okCreated = client.publish('topic', 'created');
+      // console.log('publishing created to topic result', okCreated);
+
+      const sub = observable<Message>((emit) => {
+        emit.next({
+          id: 'message',
+        });
+        setTimeout(() => {
+          emit.complete();
+        }, 50);
+        return () => {
+          const okEnded = client.publish('topic', 'ended');
+          // console.log('publishing ended to topic result', okEnded);
+        };
+      });
+
       return sub;
     }),
     request: router({
@@ -237,6 +265,16 @@ function createServer(opts: ServerOptions) {
   instance.ws('/ws', {
     message: (client, rawMsg) => {
       client.send(rawMsg);
+    },
+  });
+
+  instance.ws('/pubsub', {
+    open: (client) => {
+      const ok = client.subscribe('topic');
+
+      if (!ok) {
+        throw new Error("assertion: failed to subscribe to 'topic'");
+      }
     },
   });
 
@@ -812,5 +850,48 @@ describe('server', () => {
     await vi.waitFor(() => {
       expect(closeCode).toEqual(1008);
     });
+  });
+
+  // for some reason client.publish does not work, even though it should
+  test('subscription - websocket - client works', { skip: true }, async () => {
+    const clientWs = new WebSocket(`ws://localhost:${app.port}/pubsub`);
+
+    const messages: string[] = [];
+    let connected = false;
+    clientWs.onmessage = (ev) => {
+      console.log('triggered onmessage', ev.data);
+      messages.push(JSON.parse(ev.data));
+    };
+    clientWs.onerror = () => {
+      throw new Error('client had an error');
+    };
+
+    clientWs.onopen = () => {
+      connected = true;
+    };
+
+    await vi.waitFor(() => {
+      expect(connected).toBe(true);
+    });
+
+    console.log('num subscribers', app.server.numSubscribers('topic'));
+
+    const { client } = app.getClient('ws');
+    const sub = client.pubSub.subscribe(null, {
+      onData(data) {
+        console.log('trpc onMessage', data);
+
+        expectTypeOf(data).not.toBeAny();
+        expectTypeOf(data).toMatchTypeOf<Message>();
+        messages.push(data.id);
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(messages).toEqual(['created', 'message', 'ended']);
+    });
+
+    sub.unsubscribe();
+    clientWs.close();
   });
 });

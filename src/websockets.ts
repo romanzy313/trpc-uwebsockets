@@ -60,13 +60,17 @@ import {
 // import { Unpromise } from '@trpc/server/src/vendor/unpromise';
 // copying over packages/server/src/adapters/ws.ts
 
+export type WebSocketConnection = WebSocket<WebsocketData>;
+
 /**
  * @public
  */
 export type CreateWSSContextFnOptions = NodeHTTPCreateContextFnOptions<
   Request,
-  HttpResponseDecorated
->;
+  HttpResponseDecorated // res is never used here
+> & {
+  client: WebSocketConnection;
+};
 
 export type CreateWSSContextFn<TRouter extends AnyRouter> = (
   opts: CreateWSSContextFnOptions
@@ -114,9 +118,8 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
 
 // data bound internally on each client
 // this all is changed in newer versions
-type Decoration = {
+type WebsocketData = {
   req: Request;
-  res: HttpResponseDecorated;
   clientSubscriptions: Map<number | string, AbortController>;
   abortController: AbortController;
   useConnectionParams: boolean;
@@ -131,13 +134,13 @@ type Decoration = {
 // const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
 export function getWSConnectionHandler<TRouter extends AnyRouter>(
   opts: WebsocketsHandlerOptions<TRouter>,
-  allClients: Set<WebSocket<Decoration>>
-): WebSocketBehavior<Decoration> {
+  allClients: Set<WebSocketConnection>
+): WebSocketBehavior<WebsocketData> {
   const { createContext, router } = opts;
   const { transformer } = router._def._config;
 
   function respond(
-    client: WebSocket<Decoration>,
+    client: WebSocketConnection,
     untransformedJSON: TRPCResponseMessage
   ) {
     client.send(
@@ -152,7 +155,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
   // it returns false if context threw, and execution must be halted.
   // this function will cleanup the connection
   async function tryResolveContext(
-    client: WebSocket<Decoration>,
+    client: WebSocket<WebsocketData>,
     getConnectionParams: () => TRPCRequestInfo['connectionParams']
   ): Promise<boolean> {
     const data = client.getUserData();
@@ -161,8 +164,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     try {
       data.ctx = await createContext?.({
         req: data.req,
-        // res: client, // OG
-        res: data.res,
+        // @ts-expect-error res cant be used, but needed for type compatibility with main handler
+        res: undefined,
+        client,
         info: {
           connectionParams: getConnectionParams(),
           calls: [],
@@ -223,10 +227,10 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
   }
 
   async function handleRequest(
-    client: WebSocket<Decoration>,
+    client: WebSocket<WebsocketData>,
     msg: TRPCClientOutgoingMessage
   ) {
-    const { clientSubscriptions, ctx, req, res } = client.getUserData();
+    const { clientSubscriptions, ctx, req } = client.getUserData();
 
     const { id, jsonrpc } = msg;
 
@@ -300,19 +304,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           code: 'INTERNAL_SERVER_ERROR',
         });
       }
-
-      // this is not needed
-      if (res.aborted) {
-        return;
-      }
-
-      /* istanbul ignore next -- @preserve */
-      // if (client.readyState !== WEBSOCKET_OPEN) {
-      //   // if the client got disconnected whilst initializing the subscription
-      //   // no need to send stopped message if the client is disconnected
-
-      //   return;
-      // }
 
       /* istanbul ignore next -- @preserve */
       if (clientSubscriptions.has(id)) {
@@ -487,11 +478,10 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       const clientSubscriptions = new Map<number | string, AbortController>();
       const abortController = new AbortController();
 
-      const data: Decoration = {
+      const data: WebsocketData = {
         clientSubscriptions,
         abortController,
         req: reqFetch,
-        res: resDecorated,
         ctx: null,
         contextResolveAttempted: false,
         useConnectionParams: false,
@@ -615,7 +605,7 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
   opts: WebsocketsHandlerOptions<TRouter>
 ) {
-  const allClients = new Set<WebSocket<Decoration>>();
+  const allClients = new Set<WebSocket<WebsocketData>>();
   const behavior = getWSConnectionHandler(opts, allClients);
 
   const prefix = opts.prefix ?? '';

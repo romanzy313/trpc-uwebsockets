@@ -197,4 +197,3 @@ test('subscription', async () => {
  - Implement websocket keepAlive feature
  - Make "aborted requests are handled" less flaky
  - General cleanup of websocket implementation
- - Add client to the websocket context
