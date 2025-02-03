@@ -27,7 +27,12 @@ import { WebSocketConnection } from './websockets';
 
 export interface CreateHandlerOptions<TRouter extends AnyRouter> {
   prefix?: string;
-  // middleware?: ConnectMiddleware; // TODO, or not needed?
+  /**
+    specify if SSL is used (SSLApp instead of App)
+
+    @default false
+  **/
+  ssl?: boolean;
   trpcOptions: HandlerOptions<TRouter, Request, HttpResponseDecorated>;
   maxBodySize?: number;
 }
@@ -50,7 +55,7 @@ export function applyRequestHandler<TRouter extends AnyRouter>(
 
   const handler = async (res: HttpResponse, req: HttpRequest) => {
     const url = req.getUrl().substring(prefix.length + 1);
-    const resDecorated = decorateHttpResponse(res);
+    const resDecorated = decorateHttpResponse(res, opts.ssl);
     const reqFetch = uWsToRequest(req, resDecorated, {
       maxBodySize: opts.maxBodySize ?? null,
     });

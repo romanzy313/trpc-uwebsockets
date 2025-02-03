@@ -196,3 +196,4 @@ test('subscription', async () => {
 # TODOS:
  - Make test "aborted requests are handled" less flaky
  - General cleanup of websocket implementation
+ - use Unpromise to avoid potential memory leak

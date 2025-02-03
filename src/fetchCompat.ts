@@ -8,13 +8,16 @@ import { TRPCError } from '@trpc/server';
 // encrypted specifies if https is used
 export type HttpResponseDecorated = HttpResponse & {
   aborted: boolean;
-  encrypted: boolean;
+  ssl: boolean;
 };
 
-export function decorateHttpResponse(res: HttpResponse): HttpResponseDecorated {
+export function decorateHttpResponse(
+  res: HttpResponse,
+  ssl = false
+): HttpResponseDecorated {
   const resDecorated: HttpResponseDecorated = res as any;
   resDecorated.aborted = false;
-  resDecorated.encrypted = false;
+  resDecorated.ssl = ssl;
 
   return resDecorated;
 }
@@ -87,7 +90,7 @@ function createHeaders(req: HttpRequest): Headers {
 function createURL(req: HttpRequest, res: HttpResponseDecorated): URL {
   try {
     // FIXME: dont forget to set res.encrypted!
-    const protocol = res.encrypted ? 'https:' : 'http:';
+    const protocol = res.ssl ? 'https:' : 'http:';
 
     // TODO: reuse already parsed headers?
     const host = req.getHeader('host') ?? 'localhost';
@@ -175,23 +178,13 @@ export async function uWsSendResponse(
   // and https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
   const unsteamed_text = await fetchRes.text();
 
-  // console.log('unsteamed_text', unsteamed_text);
-
-  // TODO: is this sifficient?
   if (res.aborted) return;
-
   res.cork(() => {
     res.writeStatus(fetchRes.status.toString());
-    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
 
     fetchRes.headers.forEach((value, key) => {
       res.writeHeader(key, value);
     });
-    // this is not needed, as forEach iterates over everything nicely
-    // doublecheck set-cookie though https://developer.mozilla.org/en-US/docs/Web/API/Headers/getSetCookie
-    // fetchRes.headers.getSetCookie().forEach((value) => {
-    //   res.writeHeader('set-cookie', value);
-    // });
 
     res.end(unsteamed_text);
   });
@@ -201,12 +194,10 @@ export async function uWsSendResponseStreamed(
   fetchRes: Response,
   res: HttpResponseDecorated
 ): Promise<void> {
-  // TODO: is this sifficient?
   if (res.aborted) return;
 
   res.cork(() => {
     res.writeStatus(fetchRes.status.toString());
-    // res.writeStatus(fetchRes.statusText); // <-- for some reason this is left empty at times...
 
     fetchRes.headers.forEach((value, key) => {
       res.writeHeader(key, value);

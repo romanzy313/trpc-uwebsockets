@@ -252,8 +252,8 @@ function createServer(opts: ServerOptions) {
   const router = opts.appRouter;
 
   applyRequestHandler(instance, {
-    // useWSS: true, // TODO
     prefix: config.prefix,
+    ssl: false,
     trpcOptions: {
       router,
       createContext,
