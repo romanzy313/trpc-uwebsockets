@@ -10,10 +10,13 @@ import {
 } from './index';
 import z from 'zod';
 
-// define context
-function createContext({ req, res, info }: CreateContextOptions) {
+// define server port. Value of 0 means that random port will be used
+let port = 0;
+
+// define context. client is available when websocket connection is used
+function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
-  return { req, res, user, info };
+  return { req, res, user, info, client };
 }
 type Context = Awaited<ReturnType<typeof createContext>>;
 
@@ -41,7 +44,10 @@ const appRouter = t.router({
         count: z.number(),
       })
     )
-    .subscription(async function* ({ input, signal }) {
+    .subscription(async function* ({ input, ctx, signal }) {
+      // client on context is guaranteed to be not null:
+      // ctx.client!.publish('topic', 'message')
+
       for (let i = input.from; i < input.from + input.count; i++) {
         await new Promise((resolve) => setTimeout(resolve, 20));
         if (signal?.aborted) {
@@ -64,6 +70,7 @@ app.options('/*', (res) => {
 
 applyRequestHandler(app, {
   prefix: '/trpc',
+  ssl: false,
   trpcOptions: {
     router: appRouter,
     createContext,
@@ -95,12 +102,13 @@ app.any('/*', (res) => {
   res.end();
 });
 
-// listen on port 3000
+// wait for server to start
 const stopServer = await new Promise<() => void>((resolve, reject) => {
-  app.listen('0.0.0.0', 3000, (socket) => {
+  app.listen('0.0.0.0', port, (socket) => {
     if (socket === false) {
-      return reject(new Error('Server failed to listen on port 8000'));
+      return reject(new Error(`Server failed to listen on port ${port}`));
     }
+    port = uWs.us_socket_local_port(socket);
     resolve(() => {
       uWs.us_listen_socket_close(socket);
     });
@@ -133,11 +141,11 @@ const client = createTRPCClient<AppRouter>({
       },
       true: wsLink({
         client: createWSClient({
-          url: `ws://localhost:3000/trpc`,
+          url: `ws://localhost:${port}/trpc`,
         }),
       }),
       false: unstable_httpBatchStreamLink({
-        url: `http://localhost:3000/trpc`,
+        url: `http://localhost:${port}/trpc`,
       }),
     }),
   ],
