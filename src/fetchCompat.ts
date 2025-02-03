@@ -32,7 +32,6 @@ export function uWsToRequest(
   const ac = new AbortController();
 
   const onAbort = () => {
-    // console.log('uWsToRequest: onAbort triggered', 'res.aboorted', res.aborted);
     res.aborted = true;
     ac.abort();
   };
@@ -128,46 +127,20 @@ function createBody(
       const onData = (ab: ArrayBuffer, isLast: boolean) => {
         // special case of empty body
         if (size == 0 && ab.byteLength == 0 && isLast) {
-          // console.log('ReadableStream: empty body optimization');
           onEnd();
           return;
         }
 
-        // console.log(
-        //   'ReadableStream: onData',
-        //   'ab',
-        //   ab,
-        //   'isLast',
-        //   isLast,
-        //   'hasClosed',
-        //   hasClosed,
-        //   'aborted',
-        //   res.aborted
-        // );
         size += ab.byteLength;
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          // console.log(
-          //   'ReadableStream: enqueue',
-          //   'ab',
-          //   ab,
-          //   'size',
-          //   size,
-          //   'hasClosed',
-          //   hasClosed,
-          //   'aborted',
-          //   res.aborted
-          // );
           controller.enqueue(new Uint8Array(ab));
 
-          // TODO: double and tripple check this
           if (isLast) {
             onEnd();
           }
 
           return;
         }
-        // console.log('ReadableStream: error', 'payload too large');
-
         controller.error(
           new TRPCError({
             code: 'PAYLOAD_TOO_LARGE',
@@ -177,14 +150,6 @@ function createBody(
       };
 
       const onEnd = () => {
-        // console.log(
-        //   'ReadableStream: onEnd',
-        //   'hasClosed',
-        //   hasClosed,
-        //   'aborted',
-        //   res.aborted!
-        // );
-
         if (hasClosed) {
           return;
         }
@@ -196,14 +161,6 @@ function createBody(
       res.onAborted(onEnd);
     },
     cancel() {
-      // console.log(
-      //   'ReadableStream: cancel',
-      //   'hasClosed',
-      //   hasClosed,
-      //   'aborted',
-      //   res.aborted!
-      // );
-
       res.close();
     },
   });
