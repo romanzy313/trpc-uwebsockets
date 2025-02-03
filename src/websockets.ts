@@ -27,10 +27,7 @@ import {
   getTRPCErrorFromUnknown,
   isTrackedEnvelope,
 } from '@trpc/server';
-import {
-  createURL,
-  NodeHTTPCreateContextFnOptions,
-} from '@trpc/server/adapters/node-http';
+import { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
 import {
   type MaybePromise,
   isAsyncIterable,
@@ -611,30 +608,6 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
   const prefix = opts.prefix ?? '';
 
   app.ws(prefix, behavior);
-
-  // opts.wss.on('connection', (client, req) => {
-  //   if (opts.prefix && !req.url?.startsWith(opts.prefix)) {
-  //     return;
-  //   }
-
-  // TODO: check that these throwing cases arent happening
-  // behavior(client, req).catch((cause) => {
-  //   opts.onError?.({
-  //     error: new TRPCError({
-  //       code: 'INTERNAL_SERVER_ERROR',
-  //       cause,
-  //       message: 'Failed to handle WebSocket connection',
-  //     }),
-  //     req: req,
-  //     path: undefined,
-  //     type: 'unknown',
-  //     ctx: undefined,
-  //     input: undefined,
-  //   });
-
-  //   client.close();
-  // });
-  // });
 
   return {
     broadcastReconnectNotification: () => {

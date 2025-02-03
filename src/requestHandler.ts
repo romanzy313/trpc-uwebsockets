@@ -1,9 +1,4 @@
-import type {
-  TemplatedApp,
-  HttpRequest,
-  HttpResponse,
-  WebSocket,
-} from 'uWebSockets.js';
+import type { TemplatedApp, HttpRequest, HttpResponse } from 'uWebSockets.js';
 
 import {
   // type NodeHTTPCreateContextFnOption,
@@ -70,33 +65,6 @@ export function applyRequestHandler<TRouter extends AnyRouter>(
 
   app.get(prefix + '/*', handler);
   app.post(prefix + '/*', handler);
-
-  // if (opts.useWebsockets) {
-  //   throw new Error('TODO');
-  //   const trpcOptions =
-  //     opts.trpcOptions as unknown as WSSHandlerOptions<AnyRouter>;
-  //   // opts.trpcOptions as unknown as WSSHandlerOptions<TRouter>;
-  //   applyWSSHandler({
-  //     ...trpcOptions,
-  //   });
-  // }
-
-  // if (opts.useWSS) {
-  //   const trpcOptions =
-  //     opts.trpcOptions as unknown as WSSHandlerOptions<TRouter>;
-
-  //   const onConnection = getWSConnectionHandler<TRouter>({
-  //     ...trpcOptions,
-  //   });
-
-  //   fastify.get(prefix ?? '/', { websocket: true }, async (socket, req) => {
-  //     await onConnection(socket, req.raw);
-  //     if (trpcOptions?.keepAlive?.enabled) {
-  //       const { pingMs, pongWaitMs } = trpcOptions.keepAlive;
-  //       handleKeepAlive(socket, pingMs, pongWaitMs);
-  //     }
-  //   });
-  // }
 }
 
 export type HandlerOptions<
