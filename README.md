@@ -194,6 +194,5 @@ test('subscription', async () => {
 ```
 
 # TODOS:
- - Implement websocket keepAlive feature
- - Make "aborted requests are handled" less flaky
+ - Make test "aborted requests are handled" less flaky
  - General cleanup of websocket implementation

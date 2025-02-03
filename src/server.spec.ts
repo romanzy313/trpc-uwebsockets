@@ -20,7 +20,11 @@ import {
   wsLink,
   TRPCClientError,
 } from '@trpc/client';
-import type { HTTPHeaders, TRPCLink } from '@trpc/client';
+import type {
+  HTTPHeaders,
+  TRPCLink,
+  WebSocketClientOptions,
+} from '@trpc/client';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -33,6 +37,10 @@ import {
 } from './requestHandler';
 import { applyWebsocketHandler, CreateWSSContextFnOptions } from './websockets';
 import { TRPCRequestInfo } from '@trpc/server/http';
+
+export function sleep(ms = 0): Promise<void> {
+  return new Promise<void>((res) => setTimeout(res, ms));
+}
 
 const config = {
   prefix: '/trpc',
@@ -165,6 +173,16 @@ function createAppRouter() {
           const okEnded = client.publish('topic', 'ended');
           // console.log('publishing ended to topic result', okEnded);
         };
+      });
+
+      return sub;
+    }),
+    waitForMs: publicProcedure.input(z.number()).subscription(({ input }) => {
+      const sub = observable<Message>((emit) => {
+        setTimeout(() => {
+          emit.complete();
+        }, input);
+        return () => {};
       });
 
       return sub;
@@ -329,9 +347,7 @@ const linkSpy: TRPCLink<AppRouter> = () => {
 };
 
 interface ClientOptions {
-  connectionParams?: TRPCRequestInfo['connectionParams'];
-  onError?: (evt?: Event) => void;
-  onClose?: (cause?: { code?: number }) => void;
+  wsClientOptions?: Omit<WebSocketClientOptions, 'url'>;
   queryParams?: Record<string, string>;
   headers?: HTTPHeaders;
   port: number;
@@ -346,12 +362,9 @@ function createClientWs(opts: ClientOptions) {
   const qs = toQueryString(opts.queryParams ?? {});
   const host = `localhost:${opts.port}${config.prefix}${qs}`;
   const wsClient = createWSClient({
+    retryDelayMs: () => 99999, // never retry by default
+    ...opts.wsClientOptions,
     url: `ws://${host}`,
-    // onError: opts.onError,
-    onError: opts.onError,
-    onClose: opts.onClose,
-    connectionParams: opts.connectionParams,
-    retryDelayMs: () => 99999, // never retry
   });
   const client = createTRPCClient<AppRouter>({
     links: [linkSpy, wsLink({ client: wsClient })],
@@ -399,7 +412,7 @@ function createClientSSE(opts: ClientOptions) {
       // loggerLink(),
       unstable_httpSubscriptionLink({
         url: `http://${host}`,
-        connectionParams: opts.connectionParams,
+        connectionParams: opts.wsClientOptions?.connectionParams,
         // ponyfill EventSource
         EventSource: EventSourcePolyfill as any,
       }),
@@ -407,7 +420,7 @@ function createClientSSE(opts: ClientOptions) {
   });
   return { client };
 }
-type ClientType = 'batchStream' | 'batch' | 'sse' | 'ws';
+type ClientType = 'batchStream' | 'batch' | 'sse';
 async function createApp(serverOptions?: Partial<ServerOptions>) {
   const { appRouter, ee } = createAppRouter();
   const { instance, port, stop } = createServer({
@@ -435,14 +448,15 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
             ...clientOptions,
             port,
           });
-        case 'ws':
-          return createClientWs({
-            ...clientOptions,
-            port,
-          });
         default:
           throw new Error('unknown client');
       }
+    },
+    getClientWs(clientOptions?: Partial<ClientOptions>) {
+      return createClientWs({
+        ...clientOptions,
+        port,
+      });
     },
     ee,
     port,
@@ -712,7 +726,7 @@ describe('server', () => {
 
 describe('websocket', () => {
   test('basic functionality', async () => {
-    const { client } = app.getClient('ws');
+    const { client } = app.getClientWs();
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -778,7 +792,7 @@ describe('websocket', () => {
   });
 
   test('handles throwing procedure', async () => {
-    const { client } = app.getClient('ws');
+    const { client } = app.getClientWs();
 
     let error: any = null;
 
@@ -803,12 +817,14 @@ describe('websocket', () => {
   test('handles throwing context with connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClient('ws', {
-      connectionParams: {
-        throw: 'expected_context_error',
-      },
-      onClose(cause) {
-        closeCode = cause?.code;
+    const { client } = app.getClientWs({
+      wsClientOptions: {
+        connectionParams: {
+          throw: 'expected_context_error',
+        },
+        onClose(cause) {
+          closeCode = cause?.code;
+        },
       },
     });
 
@@ -828,12 +844,14 @@ describe('websocket', () => {
   test('handles throwing context without connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClient('ws', {
+    const { client } = app.getClientWs({
       queryParams: {
         throw: 'expected_context_error',
       },
-      onClose(cause) {
-        closeCode = cause?.code;
+      wsClientOptions: {
+        onClose(cause) {
+          closeCode = cause?.code;
+        },
       },
     });
 
@@ -891,5 +909,53 @@ describe('websocket', () => {
 
     sub.unsubscribe();
     clientWs.close();
+  });
+
+  test('keep alive', async () => {
+    let closeCode: number | undefined = undefined;
+
+    const { client, wsClient } = app.getClientWs({
+      wsClientOptions: {
+        onClose(cause) {
+          closeCode = cause?.code;
+        },
+        keepAlive: {
+          enabled: true,
+          intervalMs: 200,
+          pongTimeoutMs: 400,
+        },
+      },
+    });
+
+    const { unsubscribe } = client.waitForMs.subscribe(2_000, {});
+
+    await vi.waitFor(() => {
+      expect(wsClient.connection!.state).toBe('open');
+    });
+
+    let pongCount = 0;
+    wsClient.connection!.ws!.addEventListener('message', (ev) => {
+      if (ev.data === 'PONG') {
+        pongCount++;
+      }
+    });
+
+    await vi.waitFor(
+      () => {
+        expect(pongCount).toEqual(4);
+        expect(closeCode).toEqual(undefined);
+      },
+      {
+        timeout: 2_000,
+      }
+    );
+
+    unsubscribe();
+
+    wsClient.close();
+
+    await vi.waitFor(() => {
+      expect(closeCode).toEqual(1005);
+    });
   });
 });

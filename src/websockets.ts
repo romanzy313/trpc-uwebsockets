@@ -121,11 +121,8 @@ type WebsocketData = {
   abortController: AbortController;
   useConnectionParams: boolean;
   contextResolveAttempted: boolean;
-  // ctxPromise:
-  //   | typeof unsetContextPromiseSymbol
-  //   | Promise<inferRouterContext<AnyRouter>>
-  //   | undefined; // undefined is needed so that context is set when connection is openned
-  ctx: inferRouterContext<AnyRouter> | null; // TODO: chec kif untyped is okay?
+  ctx: inferRouterContext<AnyRouter> | null;
+  keepAlive: KeepAliver | null;
 };
 
 // const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
@@ -140,11 +137,17 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     client: WebSocketConnection,
     untransformedJSON: TRPCResponseMessage
   ) {
-    client.send(
-      JSON.stringify(
-        transformTRPCResponse(router._def._config, untransformedJSON)
-      )
-    );
+    try {
+      client.send(
+        JSON.stringify(
+          transformTRPCResponse(router._def._config, untransformedJSON)
+        )
+      );
+    } catch {
+      // client.send can throw if connection is already closed.
+      // happens when client forcefully terminates the connection
+      // and server is sending keepalive messages
+    }
   }
 
   // this deviates from standard implementation
@@ -482,6 +485,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         ctx: null,
         contextResolveAttempted: false,
         useConnectionParams: false,
+        keepAlive: null,
       };
 
       res.upgrade(
@@ -509,11 +513,15 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       // TODO: handle keepalive is here
       if (opts.keepAlive?.enabled) {
         const { pingMs, pongWaitMs } = opts.keepAlive;
-        // handleKeepAlive(client, pingMs, pongWaitMs);
+        data.keepAlive = handleKeepAlive(client, pingMs, pongWaitMs);
       }
     },
     async message(client, rawMsg) {
       const data = client.getUserData();
+
+      if (data.keepAlive) {
+        data.keepAlive.onMessage();
+      }
 
       // const msgStr = rawMsg.toString(); // or could do this ;
       const msgStr = Buffer.from(rawMsg).toString();
@@ -587,7 +595,13 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       }
     },
     close(client) {
-      const { clientSubscriptions, abortController } = client.getUserData();
+      const { clientSubscriptions, abortController, keepAlive } =
+        client.getUserData();
+
+      if (keepAlive) {
+        keepAlive.onClose();
+      }
+
       for (const sub of clientSubscriptions.values()) {
         sub.abort();
       }
@@ -619,6 +633,48 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
       for (const client of allClients) {
         client.send(data);
       }
+    },
+  };
+}
+
+type KeepAliver = {
+  onMessage: () => void;
+  onClose: () => void;
+};
+
+export function handleKeepAlive(
+  client: WebSocketConnection,
+  pingMs = 30_000,
+  pongWaitMs = 5_000
+): KeepAliver {
+  let timeout: NodeJS.Timeout | undefined = undefined;
+  let ping: NodeJS.Timeout | undefined = undefined;
+
+  const schedulePing = () => {
+    const scheduleTimeout = () => {
+      timeout = setTimeout(() => {
+        client.close();
+      }, pongWaitMs);
+    };
+    ping = setTimeout(() => {
+      client.send('PING');
+
+      scheduleTimeout();
+    }, pingMs);
+  };
+
+  schedulePing();
+
+  return {
+    onMessage() {
+      clearTimeout(ping);
+      clearTimeout(timeout);
+
+      schedulePing();
+    },
+    onClose() {
+      clearTimeout(ping);
+      clearTimeout(timeout);
     },
   };
 }
