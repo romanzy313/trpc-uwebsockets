@@ -125,7 +125,6 @@ function createServer(opts: { maxBodySize: number | null }) {
 
   return {
     async close() {
-      // donest need to be async, but for compat
       if (!socket) {
         throw new Error('could not close socket as socket is already closed');
       }

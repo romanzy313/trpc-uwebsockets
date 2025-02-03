@@ -125,7 +125,6 @@ type WebsocketData = {
   keepAlive: KeepAliver | null;
 };
 
-// const unsetContextPromiseSymbol = Symbol('unsetContextPromise');
 export function getWSConnectionHandler<TRouter extends AnyRouter>(
   opts: WebsocketsHandlerOptions<TRouter>,
   allClients: Set<WebSocketConnection>
@@ -200,25 +199,10 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         }),
       });
 
-      // v10 workaround:
-      // large timeout is needed in order for response above to reach the client
-      // otherwise it tries to reconnect over and over again, even though the context throws
-      // this is a rough edge of uWs
-      // setTimeout(() => {
-      //   if (data.res.aborted) {
-      //     return;
-      //   }
-      //   client.end();
-      // }, 1000);
-
-      // in v11 this seems to work well
-      // client.end will flush the error in respond() above before closing the connection
       setTimeout(() => {
-        // console.log('attempting to stop the client as context is bad');
-
-        // trpc bug:
-        // no mater whats the status code, trpc websocket still attemps to reconnect indefinitely
-        // i chose 1008 as due to https://datatracker.ietf.org/doc/html/rfc6455#section-7.4
+        // trpc wierd behavior:
+        // no mater whats the websocket close status code, trpc websocket still attemps to reconnect indefinitely
+        // I chose 1008 as due to https://datatracker.ietf.org/doc/html/rfc6455#section-7.4
         client.end(1008, 'bad context');
       });
 
@@ -265,7 +249,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       if (ctx === null) {
         throw new Error('assertion: context should never be null');
       }
-      // await ctxPromise; // asserts context has been set
 
       const abortController = new AbortController();
       const result = await callProcedure({
@@ -398,7 +381,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         }
 
         // need to manually cleanup without using "using"
-        // hopefully nothing above throws
         await iterator.return?.();
 
         respond(client, {
@@ -468,7 +450,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         resDecorated.aborted = true;
       });
       const reqFetch = uWsToRequest(req, resDecorated, {
-        maxBodySize: null, // leave it null here?
+        maxBodySize: null,
       });
 
       const secWebSocketKey = req.getHeader('sec-websocket-key');
@@ -510,7 +492,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         if (!ok) return;
       }
 
-      // TODO: handle keepalive is here
       if (opts.keepAlive?.enabled) {
         const { pingMs, pongWaitMs } = opts.keepAlive;
         data.keepAlive = handleKeepAlive(client, pingMs, pongWaitMs);

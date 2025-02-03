@@ -3,12 +3,6 @@ import uWs from 'uWebSockets.js';
 
 // source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
 
-// this is needed to show nodes internal errors
-// source: https://stackoverflow.com/questions/78946606/use-node-trace-warnings-to-show-where-the-warning-was-created
-// process.on('warning', (warning) => {
-//   console.warn('warning stacktrace - ' + warning.stack);
-// });
-
 import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
 
 function createServer(opts: { maxBodySize: number | null }) {
@@ -43,7 +37,6 @@ function createServer(opts: { maxBodySize: number | null }) {
 
   return {
     async close() {
-      // donest need to be async, but for compat
       if (!socket) {
         throw new Error('could not close socket as socket is already closed');
       }
@@ -158,6 +151,7 @@ describe('request', () => {
     }
     {
       // not exceeds
+
       await server.fetch(
         {
           method: 'POST',
@@ -178,6 +172,7 @@ describe('request', () => {
 
     {
       // with search params
+
       await server.fetch(
         {
           method: 'GET',
@@ -194,6 +189,7 @@ describe('request', () => {
 
     {
       // without search params
+
       await server.fetch(
         {
           method: 'GET',

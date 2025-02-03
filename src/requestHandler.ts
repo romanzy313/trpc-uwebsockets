@@ -1,22 +1,14 @@
 import type { TemplatedApp, HttpRequest, HttpResponse } from 'uWebSockets.js';
 
-import {
-  // type NodeHTTPCreateContextFnOption,
-  type NodeHTTPCreateContextFnOptions,
-} from '@trpc/server/adapters/node-http';
+import { type NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
 import type { AnyRouter } from '@trpc/server';
 import {
   resolveResponse,
   type HTTPBaseHandlerOptions,
   type ResolveHTTPRequestOptionsContextFn,
 } from '@trpc/server/http';
-// @trpc/server/node-http
-import {
-  type NodeHTTPCreateContextOption,
-  // type NodeHTTPCreateContextFnOptions,
-} from '@trpc/server/adapters/node-http';
+import { type NodeHTTPCreateContextOption } from '@trpc/server/adapters/node-http';
 
-// import { applyWebsocketsHandler, WebsocketsHandlerOptions } from './websockets';
 import {
   decorateHttpResponse,
   HttpResponseDecorated,
@@ -42,7 +34,7 @@ export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   HttpResponseDecorated
 > & {
   /*
-    optional client which must be set when context is created for websockets
+    optional client which must be passed along when context is created for websockets
   */
   client?: WebSocketConnection;
 };
@@ -87,7 +79,6 @@ type RequestHandlerOptions<
   req: TRequest;
   res: TResponse;
   path: string;
-  // maxBodySize?: number;
 };
 
 export async function uWsRequestHandler<
@@ -103,10 +94,6 @@ export async function uWsRequestHandler<
       ...innerOpts,
     });
   };
-
-  // const fetchReq = uWsToRequest(opts.req, resDecorated, {
-  //   maxBodySize: opts.maxBodySize ?? null,
-  // });
 
   const fetchRes = await resolveResponse({
     ...opts,

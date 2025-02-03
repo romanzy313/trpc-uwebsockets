@@ -5,7 +5,7 @@ import { TRPCError } from '@trpc/server';
 // mostly following /trpc/packages/server/src/adapters/node-http/incomingMessageToRequest.ts
 
 // response with extra parameters
-// encrypted specifies if https is used
+// ssl specifies if https is used
 export type HttpResponseDecorated = HttpResponse & {
   aborted: boolean;
   ssl: boolean;
@@ -89,12 +89,8 @@ function createHeaders(req: HttpRequest): Headers {
 
 function createURL(req: HttpRequest, res: HttpResponseDecorated): URL {
   try {
-    // FIXME: dont forget to set res.encrypted!
     const protocol = res.ssl ? 'https:' : 'http:';
-
-    // TODO: reuse already parsed headers?
     const host = req.getHeader('host') ?? 'localhost';
-
     const path = req.getUrl();
     const qs = req.getQuery();
 
@@ -126,7 +122,6 @@ function createBody(
 
   return new ReadableStream({
     start(controller) {
-      // console.log('ReadableStream: start');
       const onData = (ab: ArrayBuffer, isLast: boolean) => {
         // special case of empty body
         if (size == 0 && ab.byteLength == 0 && isLast) {
@@ -173,9 +168,6 @@ export async function uWsSendResponse(
   res: HttpResponseDecorated,
   fetchRes: Response
 ): Promise<void> {
-  // TODO: stream response instead
-  // use writeResponseBody from packages/server/src/adapters/node-http/writeResponse.ts
-  // and https://github.com/uNetworking/uWebSockets.js/blob/master/examples/VideoStreamer.js
   const unsteamed_text = await fetchRes.text();
 
   if (res.aborted) return;

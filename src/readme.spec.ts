@@ -96,7 +96,7 @@ applyWebsocketHandler(app, {
   createContext,
 });
 
-/* dont crash on unknown request */
+// dont crash on unknown request
 app.any('/*', (res) => {
   res.writeStatus('404 NOT FOUND');
   res.end();
