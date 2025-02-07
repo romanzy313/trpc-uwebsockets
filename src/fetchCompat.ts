@@ -42,7 +42,8 @@ export function uWsToRequest(
 
   const headers = createHeaders(req);
   const method = req.getCaseSensitiveMethod().toUpperCase();
-  const url = createURL(req, res);
+  const isSsl = res.ssl;
+  const url = createURL(req, isSsl);
 
   const init: RequestInit = {
     headers: headers,
@@ -87,9 +88,9 @@ function createHeaders(req: HttpRequest): Headers {
   return headers;
 }
 
-function createURL(req: HttpRequest, res: HttpResponseDecorated): URL {
+export function createURL(req: HttpRequest, isSsl: boolean): URL {
   try {
-    const protocol = res.ssl ? 'https:' : 'http:';
+    const protocol = isSsl ? 'https:' : 'http:';
     const host = req.getHeader('host') ?? 'localhost';
     const path = req.getUrl();
     const qs = req.getQuery();

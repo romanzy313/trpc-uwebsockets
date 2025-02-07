@@ -43,6 +43,7 @@ import {
   parseTRPCMessage,
 } from '@trpc/server/rpc';
 import {
+  createURL,
   decorateHttpResponse,
   HttpResponseDecorated,
   uWsToRequest,
@@ -51,6 +52,7 @@ import {
   isObservable,
   observableToAsyncIterable,
 } from '@trpc/server/observable';
+import { URL } from 'url';
 
 // TODO: ask TRPC to expose these
 // import { iteratorResource } from '@trpc/server/src/unstable-core-do-not-import/stream/utils/asyncIterable';
@@ -111,6 +113,12 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
      */
     dangerouslyDisablePong?: boolean;
     uWsBehaviorOptions?: WebSocketBehaviorOptions;
+    /**
+      specify if SSL is used (SSLApp instead of App)
+
+      @default false
+    **/
+    ssl?: boolean;
   };
 
 // data bound internally on each client
@@ -123,6 +131,7 @@ type WebsocketData = {
   contextResolveAttempted: boolean;
   ctx: inferRouterContext<AnyRouter> | null;
   keepAlive: KeepAliver | null;
+  url: URL;
 };
 
 export function getWSConnectionHandler<TRouter extends AnyRouter>(
@@ -173,6 +182,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           accept: null,
           type: 'unknown',
           signal: data.abortController.signal,
+          url: data.url,
         },
       });
       return true;
@@ -446,6 +456,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     idleTimeout: opts.uWsBehaviorOptions?.idleTimeout,
     async upgrade(res, req, context) {
       const resDecorated = decorateHttpResponse(res);
+
       res.onAborted(() => {
         resDecorated.aborted = true;
       });
@@ -468,6 +479,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         contextResolveAttempted: false,
         useConnectionParams: false,
         keepAlive: null,
+        url: createURL(req, resDecorated.sll),
       };
 
       res.upgrade(
