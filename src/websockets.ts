@@ -479,7 +479,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         contextResolveAttempted: false,
         useConnectionParams: false,
         keepAlive: null,
-        url: createURL(req, resDecorated.sll),
+        url: createURL(req, resDecorated.sll ? 'wss' : 'ws'),
       };
 
       res.upgrade(

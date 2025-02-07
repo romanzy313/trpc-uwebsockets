@@ -97,7 +97,7 @@ export async function uWsRequestHandler<
 
   const fetchRes = await resolveResponse({
     ...opts,
-    req: opts.req, // niew
+    req: opts.req,
     error: null,
     createContext,
     onError(o) {
