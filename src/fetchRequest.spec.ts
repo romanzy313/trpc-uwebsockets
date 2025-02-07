@@ -245,7 +245,7 @@ describe('request', () => {
     const body = '0'.repeat(2 ** 24);
     const controller = new AbortController();
 
-    console.time('large-body');
+    // console.time('large-body');
 
     try {
       setTimeout(() => {
@@ -265,7 +265,7 @@ describe('request', () => {
       expect(err.name).toBe('AbortError');
     }
 
-    console.timeEnd('large-body');
+    // console.timeEnd('large-body');
 
     await server.close();
   });

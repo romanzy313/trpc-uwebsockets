@@ -198,7 +198,7 @@ describe('response', () => {
     const count = 10;
     const timeMs = 0;
 
-    console.time('large streamed');
+    // console.time('large-streamed');
 
     const res = await server.fetch({
       path: `/slow/${size}/${count}/${timeMs}`,
@@ -209,7 +209,7 @@ describe('response', () => {
     expect(res.status).toBe(200);
     expect((await res.text()).length).toBe(size * count);
 
-    console.timeEnd('large streamed');
+    // console.timeEnd('large-streamed');
 
     await server.close();
   });
