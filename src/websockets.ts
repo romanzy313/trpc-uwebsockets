@@ -33,6 +33,8 @@ import {
   isAsyncIterable,
   isObject,
   run,
+  iteratorResource,
+  Unpromise,
 } from '@trpc/server/unstable-core-do-not-import';
 import {
   type TRPCClientOutgoingMessage,
@@ -313,9 +315,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         : result;
 
       run(async () => {
-        // await using iterator = iteratorResource(iterable);
-        // for now do it like this:
-        const iterator = iterable[Symbol.asyncIterator]();
+        await using iterator = iteratorResource(iterable);
 
         const abortPromise = new Promise<'abort'>((resolve) => {
           abortController.signal.onabort = () => resolve('abort');
@@ -335,7 +335,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           // more on this here: https://github.com/cefn/watchable/tree/main/packages/unpromise
           // the trpc used Unpromise to accomplish this
           // next = await Unpromise.race([
-          next = await Promise.race([
+          next = await Unpromise.race([
             iterator.next().catch(getTRPCErrorFromUnknown),
             abortPromise,
           ]);
@@ -389,9 +389,6 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           next = null;
           result = null;
         }
-
-        // need to manually cleanup without using "using"
-        await iterator.return?.();
 
         respond(client, {
           id,
