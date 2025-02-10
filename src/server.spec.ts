@@ -40,10 +40,6 @@ import {
 import { applyWebsocketHandler, CreateWSSContextFnOptions } from './websockets';
 import { TRPCRequestInfo } from '@trpc/server/http';
 
-export function sleep(ms = 0): Promise<void> {
-  return new Promise<void>((res) => setTimeout(res, ms));
-}
-
 const config = {
   prefix: '/trpc',
 };

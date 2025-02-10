@@ -56,9 +56,6 @@ import {
 } from '@trpc/server/observable';
 import { URL } from 'url';
 
-// TODO: ask TRPC to expose these
-// import { iteratorResource } from '@trpc/server/src/unstable-core-do-not-import/stream/utils/asyncIterable';
-// import { Unpromise } from '@trpc/server/src/vendor/unpromise';
 // copying over packages/server/src/adapters/ws.ts
 
 export type WebSocketConnection = WebSocket<WebsocketData>;

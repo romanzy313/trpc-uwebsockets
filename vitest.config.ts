@@ -12,7 +12,7 @@ export default defineConfig({
     coverage: {
       provider: 'istanbul',
       include: ['**/src/**'],
-      exclude: [],
+      exclude: ['**/src/**.spec.ts'],
     },
     poolOptions: {
       threads: {

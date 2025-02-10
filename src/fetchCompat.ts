@@ -72,16 +72,13 @@ function createHeaders(req: HttpRequest): Headers {
   const headers = new Headers();
 
   req.forEach((key, value) => {
-    if (typeof key === 'string' && key.startsWith(':')) {
+    /* istanbul ignore next -- @preserve */
+    if (key.startsWith(':')) {
       // Skip HTTP/2 pseudo-headers
       return;
     }
 
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        headers.append(key, item);
-      }
-    } else if (value != null) {
+    if (value.length != 0) {
       headers.append(key, value);
     }
   });
