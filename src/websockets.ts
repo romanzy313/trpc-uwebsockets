@@ -22,7 +22,7 @@ import {
   TRPCError,
   inferRouterContext,
   transformTRPCResponse,
-  callProcedure,
+  callTRPCProcedure,
   getErrorShape,
   getTRPCErrorFromUnknown,
   isTrackedEnvelope,
@@ -261,8 +261,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       }
 
       const abortController = new AbortController();
-      const result = await callProcedure({
-        procedures: router._def.procedures,
+      const result = await callTRPCProcedure({
+        router,
         path,
         getRawInput: async () => input,
         ctx,
