@@ -188,7 +188,6 @@ export async function uWsSendResponseStreamed(
 
   res.cork(() => {
     res.writeStatus(fetchRes.status.toString());
-
     fetchRes.headers.forEach((value, key) => {
       res.writeHeader(key, value);
     });
@@ -200,21 +199,24 @@ export async function uWsSendResponseStreamed(
     while (true) {
       const { value, done } = await reader.read();
 
-      if (done) {
-        if (!res.aborted) {
-          res.end();
-        }
-        return;
-      }
       if (res.aborted) {
         return;
       }
+
+      if (done) {
+        res.cork(() => {
+          res.end();
+        });
+        return;
+      }
+
       res.cork(() => {
         res.write(value);
       });
     }
   } else {
-    res.end();
-    return;
+    res.cork(() => {
+      res.end();
+    });
   }
 }

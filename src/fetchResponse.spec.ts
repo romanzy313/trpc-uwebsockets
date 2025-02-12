@@ -175,7 +175,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test('streamed', async () => {
+  test('streamed empty', async () => {
     const server = createServer({ maxBodySize: null });
     const res = await server.fetch({
       path: '/streamed',
@@ -192,7 +192,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test('large streamed', async () => {
+  test('streamed large ', async () => {
     const server = createServer({ maxBodySize: null });
     const size = 2 ** 20;
     const count = 10;
@@ -214,7 +214,7 @@ describe('response', () => {
     await server.close();
   });
 
-  test('slow streamed', async () => {
+  test('streamed slow ', async () => {
     const server = createServer({ maxBodySize: null });
 
     const size = 10;
@@ -231,7 +231,7 @@ describe('response', () => {
     expect((await res.text()).length).toBe(size * count);
   });
 
-  test('slow aborted', async () => {
+  test('aborted slow', async () => {
     expect.assertions(1);
 
     const server = createServer({ maxBodySize: null });
