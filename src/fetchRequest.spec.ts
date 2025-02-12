@@ -19,7 +19,9 @@ function createServer(opts: { maxBodySize: number | null }) {
 
     const request = uWsToRequest(req, resDecorated, opts);
     await handle!(request).then(resolveHandler).catch(rejectHandler);
-    res.end();
+    res.cork(() => {
+      res.end();
+    });
   });
 
   let socket: uWs.us_listen_socket | false | null = null;

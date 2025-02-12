@@ -238,8 +238,6 @@ type AppRouter = CreateAppRouter['appRouter'];
 
 interface ServerOptions {
   appRouter: AppRouter;
-  // fastifyPluginWrapper?: boolean;
-  // withContentTypeParser?: boolean;
 }
 
 function createServer(opts: ServerOptions) {
@@ -603,30 +601,6 @@ describe('server', () => {
     }
   });
 
-  test('does not bind other websocket connection', async () => {
-    const client = new WebSocket(`ws://localhost:${app.port}/ws`);
-
-    await new Promise<void>((resolve, reject) => {
-      client.onopen = () => {
-        client.send('hello');
-        resolve();
-      };
-      client.onerror = reject;
-    });
-
-    const promise = new Promise<string>((resolve) => {
-      client.onmessage = (msg) => {
-        return resolve(msg.data);
-      };
-    });
-
-    const message = await promise;
-
-    expect(message.toString()).toBe('hello');
-
-    client.close();
-  });
-
   test('handles throwing procedure', async () => {
     // batch stream
     const { client } = app.getClient('batchStream');
@@ -723,6 +697,30 @@ describe('server', () => {
 });
 
 describe('websocket', () => {
+  test('does not bind other websocket connection', async () => {
+    const client = new WebSocket(`ws://localhost:${app.port}/ws`);
+
+    await new Promise<void>((resolve, reject) => {
+      client.onopen = () => {
+        client.send('hello');
+        resolve();
+      };
+      client.onerror = reject;
+    });
+
+    const promise = new Promise<string>((resolve) => {
+      client.onmessage = (msg) => {
+        return resolve(msg.data);
+      };
+    });
+
+    const message = await promise;
+
+    expect(message.toString()).toBe('hello');
+
+    client.close();
+  });
+
   test('basic functionality', async () => {
     const { client } = app.getClientWs();
 
