@@ -1,11 +1,11 @@
-name: CI master
+name: CI main
 on:
   pull_request:
     branches:
-      - v11
+      - master
   push:
     branches:
-      - v11
+      - master
 jobs:
   build:
     name: Build, lint, and test on Node ${{ matrix.node }}
@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # only versions of node 22 and above are supported
-        node: ['22.x']
+        node: ['20.x', '22.x']
 
     steps:
       - name: Checkout repo
