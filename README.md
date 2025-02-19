@@ -182,3 +182,7 @@ const client = createTRPCProxyClient<AppRouter>({
   ],
 });
 ```
+
+# Acknowledgements
+
+Big thanks to [Ahoy Labs](https://github.com/ahoylabs) for sponsoring development of this project!
