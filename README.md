@@ -17,6 +17,7 @@ The versioning of the adapter follows the versioning scheme of trpc. For example
 This full example can be found [here](/src/readme.spec.ts).
 
 ```ts
+
 import * as uWs from 'uWebSockets.js';
 import { initTRPC } from '@trpc/server';
 import {
@@ -26,10 +27,10 @@ import {
 } from 'trpc-uwebsockets';
 import z from 'zod';
 
-// define server port. Value of 0 means that random port will be used
+/* define server port. Value of 0 means that random port will be used */
 let port = 0;
 
-// define context. client is available when websocket connection is used
+/* define context. `client` is available when websocket connection is used */
 function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
   return { req, res, user, info, client };
@@ -38,7 +39,7 @@ type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create();
 
-// define app router
+/* define app router */
 const appRouter = t.router({
   hello: t.procedure
     .input(
@@ -60,10 +61,7 @@ const appRouter = t.router({
         count: z.number(),
       })
     )
-    .subscription(async function* ({ input, ctx, signal }) {
-      // client on context is guaranteed to be not null:
-      // ctx.client!.publish('topic', 'message')
-
+    .subscription(async function* ({ input, signal }) {
       for (let i = input.from; i < input.from + input.count; i++) {
         await new Promise((resolve) => setTimeout(resolve, 20));
         if (signal?.aborted) {
@@ -75,10 +73,10 @@ const appRouter = t.router({
 });
 export type AppRouter = typeof appRouter;
 
-// create uWebSockets server and attach trpc to it
+/* create uWebSockets server and attach trpc to it */
 const app = uWs.App();
 
-// handle cors
+/* handle cors */
 app.options('/*', (res) => {
   res.writeHeader('Access-Control-Allow-Origin', '*');
   res.endWithoutBody();
@@ -86,16 +84,16 @@ app.options('/*', (res) => {
 
 applyRequestHandler(app, {
   prefix: '/trpc',
-  ssl: false,
+  ssl: false /* set to true if server is using https or is behind a reverse proxy */,
   trpcOptions: {
     router: appRouter,
     createContext,
     onError(data) {
-      // or send error to monitoring service
+      /* or send error to monitoring services */
       console.error('trpc error', data);
     },
     responseMeta() {
-      // attach additional headers on each response
+      /* attach additional headers on each response */
       return {
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -105,7 +103,7 @@ applyRequestHandler(app, {
   },
 });
 
-// add websockets support
+/* add websockets support */
 applyWebsocketHandler(app, {
   prefix: '/trpc',
   router: appRouter,
@@ -118,16 +116,14 @@ app.any('/*', (res) => {
   res.end();
 });
 
-// wait for server to start
+/* wait for server to start */
 const stopServer = await new Promise<() => void>((resolve, reject) => {
   app.listen('0.0.0.0', port, (socket) => {
     if (socket === false) {
       return reject(new Error(`Server failed to listen on port ${port}`));
     }
     port = uWs.us_socket_local_port(socket);
-    resolve(() => {
-      uWs.us_listen_socket_close(socket);
-    });
+    resolve(() => uWs.us_listen_socket_close(socket));
   });
 });
 ```
@@ -145,12 +141,12 @@ import {
   wsLink,
 } from '@trpc/client';
 
-// close the server after the test
+/* close the server after the test */
 afterAll(() => {
   stopServer();
 });
 
-// configure TRPCClient to use WebSockets and BatchStreaming transport
+/* configure TRPCClient to use WebSockets and BatchStreaming transport */
 const client = createTRPCClient<AppRouter>({
   links: [
     splitLink({
@@ -201,10 +197,9 @@ test('subscription', async () => {
 });
 ```
 
-
 # Acknowledgements
 
-Big thanks to [Ahoy Labs](https://github.com/ahoylabs) for sponsoring development of this project!
+Big thanks to [Ahoy Labs](https://github.com/ahoylabs) for sponsoring the development of this project!
 
 <!-- # TODOS:
  - Make test "aborted requests are handled" less flaky

@@ -10,10 +10,10 @@ import {
 } from './index';
 import z from 'zod';
 
-// define server port. Value of 0 means that random port will be used
+/* define server port. Value of 0 means that random port will be used */
 let port = 0;
 
-// define context. client is available when websocket connection is used
+/* define context. `client` is available when websocket connection is used */
 function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
   return { req, res, user, info, client };
@@ -22,7 +22,7 @@ type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create();
 
-// define app router
+/* define app router */
 const appRouter = t.router({
   hello: t.procedure
     .input(
@@ -45,9 +45,6 @@ const appRouter = t.router({
       })
     )
     .subscription(async function* ({ input, signal }) {
-      // client on context is guaranteed to be not null:
-      // ctx.client!.publish('topic', 'message')
-
       for (let i = input.from; i < input.from + input.count; i++) {
         await new Promise((resolve) => setTimeout(resolve, 20));
         if (signal?.aborted) {
@@ -59,10 +56,10 @@ const appRouter = t.router({
 });
 export type AppRouter = typeof appRouter;
 
-// create uWebSockets server and attach trpc to it
+/* create uWebSockets server and attach trpc to it */
 const app = uWs.App();
 
-// handle cors
+/* handle cors */
 app.options('/*', (res) => {
   res.writeHeader('Access-Control-Allow-Origin', '*');
   res.endWithoutBody();
@@ -70,16 +67,16 @@ app.options('/*', (res) => {
 
 applyRequestHandler(app, {
   prefix: '/trpc',
-  ssl: false,
+  ssl: false /* set to true if server is using https or is behind a reverse proxy */,
   trpcOptions: {
     router: appRouter,
     createContext,
     onError(data) {
-      // or send error to monitoring service
+      /* or send error to monitoring services */
       console.error('trpc error', data);
     },
     responseMeta() {
-      // attach additional headers on each response
+      /* attach additional headers on each response */
       return {
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -89,29 +86,27 @@ applyRequestHandler(app, {
   },
 });
 
-// add websockets support
+/* add websockets support */
 applyWebsocketHandler(app, {
   prefix: '/trpc',
   router: appRouter,
   createContext,
 });
 
-// dont crash on unknown request
+/* dont crash on unknown request */
 app.any('/*', (res) => {
   res.writeStatus('404 NOT FOUND');
   res.end();
 });
 
-// wait for server to start
+/* wait for server to start */
 const stopServer = await new Promise<() => void>((resolve, reject) => {
   app.listen('0.0.0.0', port, (socket) => {
     if (socket === false) {
       return reject(new Error(`Server failed to listen on port ${port}`));
     }
     port = uWs.us_socket_local_port(socket);
-    resolve(() => {
-      uWs.us_listen_socket_close(socket);
-    });
+    resolve(() => uWs.us_listen_socket_close(socket));
   });
 });
 // README SERVER END
@@ -127,12 +122,12 @@ import {
   wsLink,
 } from '@trpc/client';
 
-// close the server after the test
+/* close the server after the test */
 afterAll(() => {
   stopServer();
 });
 
-// configure TRPCClient to use WebSockets and BatchStreaming transport
+/* configure TRPCClient to use WebSockets and BatchStreaming transport */
 const client = createTRPCClient<AppRouter>({
   links: [
     splitLink({
