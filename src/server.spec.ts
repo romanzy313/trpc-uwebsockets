@@ -37,8 +37,7 @@ import {
   applyRequestHandler,
   CreateHandlerOptions,
 } from './requestHandler';
-import { applyWebsocketHandler, CreateWSSContextFnOptions } from './websockets';
-import { TRPCRequestInfo } from '@trpc/server/http';
+import { applyWebsocketHandler } from './websockets';
 
 const config = {
   prefix: '/trpc',

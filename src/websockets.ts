@@ -126,7 +126,6 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
   };
 
 // data bound internally on each client
-// this all is changed in newer versions
 type WebsocketData = {
   req: Request;
   clientSubscriptions: Map<number | string, AbortController>;
@@ -612,8 +611,6 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
   const behavior = getWSConnectionHandler(opts, allClients);
 
   const prefix = opts.prefix ?? '';
-
-  console.log('prefix is ', prefix);
 
   app.ws(prefix, behavior);
 
