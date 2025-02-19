@@ -726,15 +726,15 @@
   resolved "https://registry.yarnpkg.com/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.32.0.tgz#1a40b4792c08094b6479c48c90fe7f4b10ec2f54"
   integrity sha512-5hqO5S3PTEO2E5VjCePxv40gIgyS2KvO7E7/vvC/NbIW4SIRamkMr1hqj+5Y67fbBWv/bQLB6KelBQmXlyCjWA==
 
-"@trpc/client@11.0.0-rc.772":
-  version "11.0.0-rc.772"
-  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-rc.772.tgz#cedc49eaed5d0d30c976aec2dab8a2aedb67b67a"
-  integrity sha512-EKEe7ArExpa5Tq2mUqZ7ZCGkzSbPDTmtjDocxPOxHSfwhTVpUm6TYNkp0vw1090H6xncA6hw1kNChHJabeH+AQ==
+"@trpc/client@11.0.0-rc.795":
+  version "11.0.0-rc.795"
+  resolved "https://registry.yarnpkg.com/@trpc/client/-/client-11.0.0-rc.795.tgz#0f6f98303a34f6c12f2fd6387b1e72d3330111c2"
+  integrity sha512-t4KCvYr/jI5pmdD0zO5cukarVLN58g1PwV5Lsm5WJyR4TZuIUqIyQZVSm7uM2abBabOSv39P8myK9nFc5yPFdg==
 
-"@trpc/server@11.0.0-rc.772":
-  version "11.0.0-rc.772"
-  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-rc.772.tgz#7763081b496a310439618be4414e225637428477"
-  integrity sha512-xZRL9Ks8zGSV+CHJct2dx6MgL2g9VIJUKoDxetH8s8iybQgBuZ5JUi6W25FcP6jIMz5AvsmU1KXu2ATsb6J/OQ==
+"@trpc/server@11.0.0-rc.795":
+  version "11.0.0-rc.795"
+  resolved "https://registry.yarnpkg.com/@trpc/server/-/server-11.0.0-rc.795.tgz#f88a1554dda24e1dfe7bea40806c16c1a45ac75d"
+  integrity sha512-rJ5TdCGN4cOb7eSf3zXbWqGMA1XZabtmBOojbNiru2ZujuHGJDmWyKzv/GI2a/j/C/VhUmVU6NRKeLFg3NVERA==
 
 "@tsconfig/node10@^1.0.7":
   version "1.0.9"
