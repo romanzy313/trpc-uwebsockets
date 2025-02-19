@@ -86,8 +86,16 @@ export type WSConnectionHandlerOptions<TRouter extends AnyRouter> =
  */
 export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
   WSConnectionHandlerOptions<TRouter> & {
-    // wss: ws.WebSocketServer;
+    /**
+     * Url path prefix where the tRPC server will be registered.
+     * @default ''
+     */
     prefix?: string;
+    /**
+     * Specify if SSL is used. Set to true if you are using SSLApp or if the server is served behind SSL reverse proxy.
+     * @default false
+     */
+    ssl?: boolean;
     keepAlive?: {
       /**
        * Enable heartbeat messages
@@ -111,13 +119,10 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
      * @default false
      */
     dangerouslyDisablePong?: boolean;
-    uWsBehaviorOptions?: WebSocketBehaviorOptions;
     /**
-      specify if SSL is used (SSLApp instead of App)
-
-      @default false
-    **/
-    ssl?: boolean;
+     * uWebSockets.js websocket settings.
+     */
+    uWsBehaviorOptions?: WebSocketBehaviorOptions;
   };
 
 // data bound internally on each client
@@ -607,6 +612,8 @@ export function applyWebsocketHandler<TRouter extends AnyRouter>(
   const behavior = getWSConnectionHandler(opts, allClients);
 
   const prefix = opts.prefix ?? '';
+
+  console.log('prefix is ', prefix);
 
   app.ws(prefix, behavior);
 

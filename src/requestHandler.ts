@@ -18,24 +18,32 @@ import {
 import { WebSocketConnection } from './websockets';
 
 export interface CreateHandlerOptions<TRouter extends AnyRouter> {
+  /**
+   * Url path prefix where the tRPC server will be registered.
+   * @default ''
+   */
   prefix?: string;
   /**
-    specify if SSL is used (SSLApp instead of App)
-
-    @default false
-  **/
+   * Specify if SSL is used. Set to true if you are using SSLApp or if the server is served behind SSL reverse proxy.
+   * @default false
+   */
   ssl?: boolean;
-  trpcOptions: HandlerOptions<TRouter, Request, HttpResponseDecorated>;
+  /**
+   * Maximum request body size in bytes. If the body is larger than this, the request will be aborted.
+   * Null value allows for unlimited body size.
+   * @default null
+   */
   maxBodySize?: number;
+  trpcOptions: HandlerOptions<TRouter, Request, HttpResponseDecorated>;
 }
 
 export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   Request,
   HttpResponseDecorated
 > & {
-  /*
-    optional client which must be passed along when context is created for websockets
-  */
+  /**
+   * This client which must be passed along when the context is created
+   **/
   client?: WebSocketConnection;
 };
 
