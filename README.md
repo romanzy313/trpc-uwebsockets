@@ -201,7 +201,11 @@ test('subscription', async () => {
 });
 ```
 
-# TODOS:
+
+# Acknowledgements
+
+Big thanks to [Ahoy Labs](https://github.com/ahoylabs) for sponsoring development of this project!
+
+<!-- # TODOS:
  - Make test "aborted requests are handled" less flaky
- - General cleanup of websocket implementation
- - use Unpromise to avoid potential memory leak
+ - Skipped test "uWebsockets pubsub" doesn't work as intended... But usage of built-in pubsub is not needed with trpc  -->
