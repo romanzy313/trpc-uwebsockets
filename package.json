@@ -28,11 +28,11 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "11.0.0-rc.817",
+    "@trpc/server": "11.0.0-rc.819",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0"
   },
   "devDependencies": {
-    "@trpc/client": "11.0.0-rc.817",
+    "@trpc/client": "11.0.0-rc.819",
     "@types/node": "^20.11.5",
     "@types/node-fetch": "^2.6.11",
     "@types/ws": "^8.5.10",
