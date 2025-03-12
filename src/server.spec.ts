@@ -1,35 +1,33 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import {
-  vi,
-  test,
-  expect,
-  describe,
-  beforeEach,
-  afterEach,
-  expectTypeOf,
-} from 'vitest';
-import { EventEmitter } from 'events';
-import uWs from 'uWebSockets.js';
-import {
-  createTRPCClient,
-  loggerLink,
-  createWSClient,
-  httpBatchLink,
-  splitLink,
-  unstable_httpBatchStreamLink,
-  unstable_httpSubscriptionLink,
-  wsLink,
-  TRPCClientError,
-} from '@trpc/client';
 import type {
   HTTPHeaders,
   TRPCLink,
   WebSocketClientOptions,
 } from '@trpc/client';
+import {
+  createTRPCClient,
+  createWSClient,
+  httpBatchLink,
+  TRPCClientError,
+  unstable_httpBatchStreamLink,
+  unstable_httpSubscriptionLink,
+  wsLink,
+} from '@trpc/client';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { EventSourcePolyfill } from 'event-source-polyfill';
+import { EventEmitter } from 'events';
+import uWs from 'uWebSockets.js';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  test,
+  vi,
+} from 'vitest';
 import { z } from 'zod';
 
 import {
