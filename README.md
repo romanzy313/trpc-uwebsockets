@@ -14,10 +14,9 @@ The versioning of the adapter follows the versioning scheme of trpc. For example
 
 # Usage
 
-This full example can be found [here](/src/readme.spec.ts).
+This full example can be found [here](src/readme.spec.ts).
 
 ```ts
-
 import * as uWs from 'uWebSockets.js';
 import { initTRPC } from '@trpc/server';
 import {
@@ -26,9 +25,6 @@ import {
   CreateContextOptions,
 } from 'trpc-uwebsockets';
 import z from 'zod';
-
-/* define server port. Value of 0 means that random port will be used */
-let port = 0;
 
 /* define context. `client` is available when websocket connection is used */
 function createContext({ req, res, info, client }: CreateContextOptions) {
@@ -53,16 +49,24 @@ const appRouter = t.router({
       ({ input, ctx }) =>
         `hello ${input?.username ?? ctx.user?.name ?? 'world'}`
     ),
-
   count: t.procedure
     .input(
-      z.object({
-        from: z.number(),
-        count: z.number(),
-      })
+      z
+        .object({
+          from: z.number().positive(),
+          to: z.number().positive(),
+        })
+        .superRefine(({ from, to }, ctx) => {
+          if (to < from) {
+            ctx.addIssue({
+              code: 'custom',
+              message: "'to' must be bigger then 'from'",
+            });
+          }
+        })
     )
     .subscription(async function* ({ input, signal }) {
-      for (let i = input.from; i < input.from + input.count; i++) {
+      for (let i = input.from; i <= input.to; i++) {
         await new Promise((resolve) => setTimeout(resolve, 20));
         if (signal?.aborted) {
           return;
@@ -73,7 +77,7 @@ const appRouter = t.router({
 });
 export type AppRouter = typeof appRouter;
 
-/* create uWebSockets server and attach trpc to it */
+/* create uWebSockets server */
 const app = uWs.App();
 
 /* handle cors */
@@ -82,6 +86,7 @@ app.options('/*', (res) => {
   res.endWithoutBody();
 });
 
+/* attach main trpc event handler */
 applyRequestHandler(app, {
   prefix: '/trpc',
   ssl: false /* set to true if server is using https or is behind a reverse proxy */,
@@ -117,21 +122,31 @@ app.any('/*', (res) => {
 });
 
 /* wait for server to start */
-const stopServer = await new Promise<() => void>((resolve, reject) => {
-  app.listen('0.0.0.0', port, (socket) => {
-    if (socket === false) {
-      return reject(new Error(`Server failed to listen on port ${port}`));
-    }
-    port = uWs.us_socket_local_port(socket);
-    resolve(() => uWs.us_listen_socket_close(socket));
+
+type Server = {
+  stop: () => void;
+  port: number;
+};
+
+async function startServer(port: number): Promise<Server> {
+  return new Promise<Server>((resolve, reject) => {
+    app.listen('0.0.0.0', port, (socket) => {
+      if (socket === false) {
+        return reject(new Error(`Server failed to listen on port ${port}`));
+      }
+      resolve({
+        stop: () => uWs.us_listen_socket_close(socket),
+        port: uWs.us_socket_local_port(socket),
+      });
+    });
   });
-});
+}
 ```
 
 # Client example
 
 ```ts
-import { vi, test, expect, afterAll } from 'vitest';
+import { vi, test, expect, beforeEach, afterEach } from 'vitest';
 
 import {
   createTRPCClient,
@@ -141,31 +156,40 @@ import {
   wsLink,
 } from '@trpc/client';
 
-/* close the server after the test */
-afterAll(() => {
-  stopServer();
+let server: Server;
+
+beforeEach(async () => {
+  /* zero port means that random port will be used */
+  server = await startServer(0);
+});
+afterEach(() => {
+  server.stop();
 });
 
 /* configure TRPCClient to use WebSockets and BatchStreaming transport */
-const client = createTRPCClient<AppRouter>({
-  links: [
-    splitLink({
-      condition(op) {
-        return op.type === 'subscription';
-      },
-      true: wsLink({
-        client: createWSClient({
-          url: `ws://localhost:${port}/trpc`,
+function makeClient() {
+  return createTRPCClient<AppRouter>({
+    links: [
+      splitLink({
+        condition(op) {
+          return op.type === 'subscription';
+        },
+        true: wsLink({
+          client: createWSClient({
+            url: `ws://localhost:${server.port}/trpc`,
+          }),
+        }),
+        false: unstable_httpBatchStreamLink({
+          url: `http://localhost:${server.port}/trpc`,
         }),
       }),
-      false: unstable_httpBatchStreamLink({
-        url: `http://localhost:${port}/trpc`,
-      }),
-    }),
-  ],
-});
+    ],
+  });
+}
 
 test('query', async () => {
+  const client = makeClient();
+
   expect(await client.hello.query()).toEqual('hello anonymous');
   expect(
     await client.hello.query({
@@ -175,10 +199,12 @@ test('query', async () => {
 });
 
 test('subscription', async () => {
+  const client = makeClient();
+
   const results: number[] = [];
   let done = false;
   client.count.subscribe(
-    { from: 3, count: 5 },
+    { from: 3, to: 7 },
     {
       onData(value) {
         results.push(value);
