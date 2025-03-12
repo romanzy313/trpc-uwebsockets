@@ -9,8 +9,8 @@ import {
   afterEach,
   expectTypeOf,
 } from 'vitest';
-import uWs from 'uWebSockets.js';
 import { EventEmitter } from 'events';
+import uWs from 'uWebSockets.js';
 import {
   createTRPCClient,
   loggerLink,

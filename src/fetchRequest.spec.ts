@@ -1,9 +1,8 @@
-import { test, expect, describe } from 'vitest';
 import uWs from 'uWebSockets.js';
-
-// source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
+import { describe, expect, test } from 'vitest';
 
 import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
+// source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
 
 function createServer(opts: { maxBodySize: number | null }) {
   type Handler = (req: Request) => Promise<void>;

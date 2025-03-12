@@ -109,9 +109,6 @@ export function createURL(req: HttpRequest, protocol: string): URL {
 function createBody(
   res: HttpResponse,
   opts: {
-    /**
-     * Max body size in bytes. If the body is larger than this, the request will be aborted
-     */
     maxBodySize: number | null;
   }
 ): RequestInit['body'] {

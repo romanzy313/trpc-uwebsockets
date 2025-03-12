@@ -1,41 +1,24 @@
-import type {
-  TemplatedApp,
-  WebSocketBehavior,
-  WebSocket,
-} from 'uWebSockets.js';
-
-type RemoveFunctions<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  [K in keyof T as NonNullable<T[K]> extends Function ? never : K]: T[K];
-};
-
-export type WebSocketBehaviorOptions = RemoveFunctions<WebSocketBehavior<any>>;
-
+import {
+  type AnyRouter,
+  type CreateContextCallback,
+  callTRPCProcedure,
+  getErrorShape,
+  getTRPCErrorFromUnknown,
+  inferRouterContext,
+  isTrackedEnvelope,
+  transformTRPCResponse,
+  TRPCError,
+} from '@trpc/server';
+import { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
 import {
   type BaseHandlerOptions,
   type TRPCRequestInfo,
   parseConnectionParamsFromUnknown,
 } from '@trpc/server/http';
 import {
-  type CreateContextCallback,
-  type AnyRouter,
-  TRPCError,
-  inferRouterContext,
-  transformTRPCResponse,
-  callTRPCProcedure,
-  getErrorShape,
-  getTRPCErrorFromUnknown,
-  isTrackedEnvelope,
-} from '@trpc/server';
-import { NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
-import {
-  type MaybePromise,
-  isAsyncIterable,
-  isObject,
-  run,
-  iteratorResource,
-  Unpromise,
-} from '@trpc/server/unstable-core-do-not-import';
+  isObservable,
+  observableToAsyncIterable,
+} from '@trpc/server/observable';
 import {
   type TRPCClientOutgoingMessage,
   type TRPCConnectionParamsMessage,
@@ -45,16 +28,35 @@ import {
   parseTRPCMessage,
 } from '@trpc/server/rpc';
 import {
+  type MaybePromise,
+  isAsyncIterable,
+  isObject,
+  iteratorResource,
+  run,
+  Unpromise,
+} from '@trpc/server/unstable-core-do-not-import';
+import { URL } from 'url';
+import type {
+  TemplatedApp,
+  WebSocket,
+  WebSocketBehavior,
+} from 'uWebSockets.js';
+
+import {
   createURL,
   decorateHttpResponse,
   HttpResponseDecorated,
   uWsToRequest,
 } from './fetchCompat';
-import {
-  isObservable,
-  observableToAsyncIterable,
-} from '@trpc/server/observable';
-import { URL } from 'url';
+
+type RemoveFunctions<T> = {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  [K in keyof T as NonNullable<T[K]> extends Function ? never : K]: T[K];
+};
+/**
+ * A structure holding settings for a WebSocket handler.
+ */
+export type WebSocketBehaviorOptions = RemoveFunctions<WebSocketBehavior<any>>;
 
 // copying over packages/server/src/adapters/ws.ts
 
@@ -82,7 +84,7 @@ export type WSConnectionHandlerOptions<TRouter extends AnyRouter> =
     >;
 
 /**
- * Web socket server handler
+ * WebSockets handler definition
  */
 export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
   WSConnectionHandlerOptions<TRouter> & {
@@ -120,7 +122,7 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
      */
     dangerouslyDisablePong?: boolean;
     /**
-     * uWebSockets.js websocket settings.
+     * uWebSockets.js WebSocket hander settings
      */
     uWsBehaviorOptions?: WebSocketBehaviorOptions;
   };
@@ -175,7 +177,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     try {
       data.ctx = await createContext?.({
         req: data.req,
-        // @ts-expect-error res cant be used, but needed for type compatibility with main handler
+        // @ts-expect-error res cant be used, but undefined is needed here
+        // for type compatibility with main handler
         res: undefined,
         client,
         info: {

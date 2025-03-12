@@ -26,7 +26,7 @@ import {
 } from 'trpc-uwebsockets';
 import z from 'zod';
 
-/* define context. `client` is available when websocket connection is used */
+/* define context. `client` is available for websocket connections */
 function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
   return { req, res, user, info, client };
@@ -120,8 +120,6 @@ app.any('/*', (res) => {
   res.writeStatus('404 NOT FOUND');
   res.end();
 });
-
-/* wait for server to start */
 
 type Server = {
   stop: () => void;

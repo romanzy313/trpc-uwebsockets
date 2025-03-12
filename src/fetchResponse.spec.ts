@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { test, expect, describe } from 'vitest';
 import uWs from 'uWebSockets.js';
-
-// source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
+import { describe, expect, test } from 'vitest';
 
 import {
   decorateHttpResponse,
   uWsSendResponse,
   uWsSendResponseStreamed,
 } from './fetchCompat';
+// source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
 
 function createServer(opts: { maxBodySize: number | null }) {
   const app = uWs.App();

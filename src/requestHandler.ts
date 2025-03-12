@@ -1,13 +1,14 @@
-import type { TemplatedApp, HttpRequest, HttpResponse } from 'uWebSockets.js';
-
-import { type NodeHTTPCreateContextFnOptions } from '@trpc/server/adapters/node-http';
+import type { HttpRequest, HttpResponse, TemplatedApp } from 'uWebSockets.js';
 import type { AnyRouter } from '@trpc/server';
+import {
+  type NodeHTTPCreateContextFnOptions,
+  type NodeHTTPCreateContextOption,
+} from '@trpc/server/adapters/node-http';
 import {
   resolveResponse,
   type HTTPBaseHandlerOptions,
   type ResolveHTTPRequestOptionsContextFn,
 } from '@trpc/server/http';
-import { type NodeHTTPCreateContextOption } from '@trpc/server/adapters/node-http';
 
 import {
   decorateHttpResponse,
@@ -24,7 +25,7 @@ export interface CreateHandlerOptions<TRouter extends AnyRouter> {
    */
   prefix?: string;
   /**
-   * Specify if SSL is used. Set to true if you are using SSLApp or if the server is served behind SSL reverse proxy.
+   * Specify if SSL is used. Set to true if your application is served over HTTPS.
    * @default false
    */
   ssl?: boolean;
@@ -42,11 +43,16 @@ export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   HttpResponseDecorated
 > & {
   /**
-   * This client which must be passed along when the context is created
+   * Client must be passed along when the context is created.
    **/
   client?: WebSocketConnection;
 };
 
+/**
+ * Applies tRPC request handler to uWebSockets app.
+ * @param app - The uWebSockets application.
+ * @param opts - Options for configuring the tRPC request handler.
+ */
 export function applyRequestHandler<TRouter extends AnyRouter>(
   app: TemplatedApp,
   opts: CreateHandlerOptions<TRouter>
