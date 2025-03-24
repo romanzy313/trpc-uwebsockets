@@ -1,8 +1,7 @@
 {
-  "private": false,
   "name": "trpc-uwebsockets",
   "description": "tRPC adapter for uWebSockets.js server",
-  "version": "11.0.0-rc.828.0",
+  "version": "11.0.0",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
@@ -28,11 +27,11 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "11.0.0-rc.828",
+    "@trpc/server": "^11.0.0",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0"
   },
   "devDependencies": {
-    "@trpc/client": "11.0.0-rc.828",
+    "@trpc/client": "^11.0.0",
     "@types/node": "^20.11.5",
     "@types/node-fetch": "^2.6.11",
     "@types/ws": "^8.5.10",

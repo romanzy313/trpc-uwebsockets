@@ -1,16 +1,14 @@
 # trpc-uwebsockets
 
-[uWebSockets.js](https://github.com/uNetworking/uWebSockets.js) adapter for [tRPC version 11](https://trpc.io/). Use [master branch](https://github.com/romanzy313/trpc-uwebsockets/tree/master) for version 10.
+[uWebSockets.js](https://github.com/uNetworking/uWebSockets.js) adapter for [tRPC version 11](https://trpc.io/). Use [v10 branch](https://github.com/romanzy313/trpc-uwebsockets/tree/v10) for version 10.
 
 # Installation
 
-Install the latest release candidate version with
-
 ```bash
-npm install trpc-uwebsockets@next
+npm install trpc-uwebsockets
 ```
 
-The versioning of the adapter follows the versioning scheme of trpc. For example, for the `@trpc/server` version of `11.0.0-rc.730`, the npm package for `trpc-uwebsockets` will have version `11.0.0-rc.730.X`, where X is incrementing library version. Ensure that the version of `@trpc/server` and `@trpc/client` matches the version of `trpc-uwebsockets`.
+The versioning of the adapter follows the versioning scheme of trpc. For example, for the `@trpc/server` version of `11.0.0`, the npm package for `trpc-uwebsockets` will have version `11.0.X`, where X is incrementing library version. Ensure that the version of `@trpc/server` and `@trpc/client` matches the version of `trpc-uwebsockets`. Your package manager should provide warnings such as "incorrect peer dependency" if something is wrong.
 
 # Usage
 
@@ -19,14 +17,15 @@ This full example can be found [here](src/readme.spec.ts).
 ```ts
 import * as uWs from 'uWebSockets.js';
 import { initTRPC } from '@trpc/server';
+import z from 'zod';
+
 import {
   applyRequestHandler,
   applyWebsocketHandler,
   CreateContextOptions,
 } from 'trpc-uwebsockets';
-import z from 'zod';
 
-/* define context. `client` is available for websocket connections */
+/* Define context. `client` is available when websocket connection is used */
 function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
   return { req, res, user, info, client };
@@ -35,7 +34,7 @@ type Context = Awaited<ReturnType<typeof createContext>>;
 
 const t = initTRPC.context<Context>().create();
 
-/* define app router */
+/* Define app router */
 const appRouter = t.router({
   hello: t.procedure
     .input(
@@ -77,28 +76,26 @@ const appRouter = t.router({
 });
 export type AppRouter = typeof appRouter;
 
-/* create uWebSockets server */
+/* Create uWebSockets server */
 const app = uWs.App();
 
-/* handle cors */
+/* Handle CORS */
 app.options('/*', (res) => {
   res.writeHeader('Access-Control-Allow-Origin', '*');
   res.endWithoutBody();
 });
 
-/* attach main trpc event handler */
+/* Attach main tRPC event handler */
 applyRequestHandler(app, {
   prefix: '/trpc',
-  ssl: false /* set to true if server is using https or is behind a reverse proxy */,
+  ssl: false /* set to true if your application is served over HTTPS */,
   trpcOptions: {
     router: appRouter,
     createContext,
     onError(data) {
-      /* or send error to monitoring services */
-      console.error('trpc error', data);
+      console.error('trpc error:', data);
     },
     responseMeta() {
-      /* attach additional headers on each response */
       return {
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -108,14 +105,14 @@ applyRequestHandler(app, {
   },
 });
 
-/* add websockets support */
+/* Add websockets support */
 applyWebsocketHandler(app, {
   prefix: '/trpc',
   router: appRouter,
   createContext,
 });
 
-/* dont crash on unknown request */
+/* Don't crash on undefined requests */
 app.any('/*', (res) => {
   res.writeStatus('404 NOT FOUND');
   res.end();
@@ -150,21 +147,21 @@ import {
   createTRPCClient,
   createWSClient,
   splitLink,
-  unstable_httpBatchStreamLink,
+  httpBatchStreamLink,
   wsLink,
 } from '@trpc/client';
 
 let server: Server;
 
 beforeEach(async () => {
-  /* zero port means that random port will be used */
+  // Zero port means that a random port will be used
   server = await startServer(0);
 });
 afterEach(() => {
   server.stop();
 });
 
-/* configure TRPCClient to use WebSockets and BatchStreaming transport */
+/* Configure TRPCClient to use WebSockets and BatchStreaming transport */
 function makeClient() {
   return createTRPCClient<AppRouter>({
     links: [
@@ -177,7 +174,7 @@ function makeClient() {
             url: `ws://localhost:${server.port}/trpc`,
           }),
         }),
-        false: unstable_httpBatchStreamLink({
+        false: httpBatchStreamLink({
           url: `http://localhost:${server.port}/trpc`,
         }),
       }),

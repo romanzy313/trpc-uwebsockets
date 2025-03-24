@@ -132,7 +132,7 @@ import {
   createTRPCClient,
   createWSClient,
   splitLink,
-  unstable_httpBatchStreamLink,
+  httpBatchStreamLink,
   wsLink,
 } from '@trpc/client';
 
@@ -159,7 +159,7 @@ function makeClient() {
             url: `ws://localhost:${server.port}/trpc`,
           }),
         }),
-        false: unstable_httpBatchStreamLink({
+        false: httpBatchStreamLink({
           url: `http://localhost:${server.port}/trpc`,
         }),
       }),

@@ -10,8 +10,8 @@ import {
   createWSClient,
   httpBatchLink,
   TRPCClientError,
-  unstable_httpBatchStreamLink,
-  unstable_httpSubscriptionLink,
+  httpBatchStreamLink,
+  httpSubscriptionLink,
   wsLink,
 } from '@trpc/client';
 import { initTRPC, TRPCError } from '@trpc/server';
@@ -372,7 +372,7 @@ function createClientBatchStream(opts: ClientOptions) {
   const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
-      unstable_httpBatchStreamLink({
+      httpBatchStreamLink({
         url: `http://${host}`,
         headers: opts.headers,
       }),
@@ -403,7 +403,7 @@ function createClientSSE(opts: ClientOptions) {
   const client = createTRPCClient<AppRouter>({
     links: [
       // loggerLink(),
-      unstable_httpSubscriptionLink({
+      httpSubscriptionLink({
         url: `http://${host}`,
         connectionParams: opts.wsClientOptions?.connectionParams,
         // ponyfill EventSource
