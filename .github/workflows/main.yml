@@ -20,10 +20,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Use Node ${{ matrix.node }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
+          cache: 'yarn'
 
       - name: Run install
         uses: borales/actions-yarn@v4.2.0
