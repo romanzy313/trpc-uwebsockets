@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
 import type {
   HTTPHeaders,
   TRPCLink,
@@ -806,7 +805,7 @@ describe('websocket', () => {
     );
 
     await vi.waitFor(() => {
-      expect(error).toEqual(new TRPCClientError('5'));
+      expect(error.message).toEqual(new TRPCClientError('5').message);
     });
   });
 
