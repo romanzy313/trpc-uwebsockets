@@ -54,12 +54,6 @@ export function uWsToRequest(
 
   if (method !== 'GET' && method !== 'HEAD') {
     init.body = createBody(res, opts);
-
-    // init.duplex = 'half' must be set when body is a ReadableStream, and Node follows the spec.
-    // However, this property is not defined in the TypeScript types for RequestInit, so we have
-    // to cast it here in order to set it without a type error.
-    // See https://fetch.spec.whatwg.org/#dom-requestinit-duplex
-    // @ts-expect-error this is fine
     init.duplex = 'half';
   }
 
