@@ -50,7 +50,7 @@ import {
 } from './fetchCompat';
 
 type RemoveFunctions<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   [K in keyof T as NonNullable<T[K]> extends Function ? never : K]: T[K];
 };
 /**
@@ -92,39 +92,41 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
      * Url path prefix where the tRPC server will be registered.
      * @default ''
      */
-    prefix?: string;
+    prefix?: string | undefined;
     /**
      * Specify if SSL is used. Set to true if you are using SSLApp or if the server is served behind SSL reverse proxy.
      * @default false
      */
-    ssl?: boolean;
-    keepAlive?: {
-      /**
-       * Enable heartbeat messages
-       * @default false
-       */
-      enabled: boolean;
-      /**
-       * Heartbeat interval in milliseconds
-       * @default 30_000
-       */
-      pingMs?: number;
-      /**
-       * Terminate the WebSocket if no pong is received after this many milliseconds
-       * @default 5_000
-       */
-      pongWaitMs?: number;
-    };
+    ssl?: boolean | undefined;
+    keepAlive?:
+      | {
+          /**
+           * Enable heartbeat messages
+           * @default false
+           */
+          enabled: boolean;
+          /**
+           * Heartbeat interval in milliseconds
+           * @default 30_000
+           */
+          pingMs?: number | undefined;
+          /**
+           * Terminate the WebSocket if no pong is received after this many milliseconds
+           * @default 5_000
+           */
+          pongWaitMs?: number | undefined;
+        }
+      | undefined;
     /**
      * Disable responding to ping messages from the client
      * **Not recommended** - this is mainly used for testing
      * @default false
      */
-    dangerouslyDisablePong?: boolean;
+    dangerouslyDisablePong?: boolean | undefined;
     /**
      * uWebSockets.js WebSocket hander settings
      */
-    uWsBehaviorOptions?: WebSocketBehaviorOptions;
+    uWsBehaviorOptions?: WebSocketBehaviorOptions | undefined;
   };
 
 // data bound internally on each client

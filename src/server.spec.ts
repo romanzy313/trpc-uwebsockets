@@ -340,9 +340,9 @@ const linkSpy: TRPCLink<AppRouter> = () => {
 };
 
 interface ClientOptions {
-  wsClientOptions?: Omit<WebSocketClientOptions, 'url'>;
-  queryParams?: Record<string, string>;
-  headers?: HTTPHeaders;
+  wsClientOptions?: Omit<WebSocketClientOptions, 'url'> | undefined;
+  queryParams?: Record<string, string> | undefined;
+  headers?: HTTPHeaders | undefined;
   port: number;
 }
 
@@ -414,7 +414,7 @@ function createClientSSE(opts: ClientOptions) {
   return { client };
 }
 type ClientType = 'batchStream' | 'batch' | 'sse';
-async function createApp(serverOptions?: Partial<ServerOptions>) {
+async function createApp(serverOptions?: Partial<ServerOptions> | undefined) {
   const { appRouter, ee } = createAppRouter();
   const { instance, port, stop } = createServer({
     ...(serverOptions ?? {}),
@@ -424,7 +424,10 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
   return {
     server: instance,
     stop,
-    getClient(clientType: ClientType, clientOptions?: Partial<ClientOptions>) {
+    getClient(
+      clientType: ClientType,
+      clientOptions?: Partial<ClientOptions> | undefined
+    ) {
       switch (clientType) {
         case 'batchStream':
           return createClientBatchStream({
@@ -445,7 +448,7 @@ async function createApp(serverOptions?: Partial<ServerOptions>) {
           throw new Error('unknown client');
       }
     },
-    getClientWs(clientOptions?: Partial<ClientOptions>) {
+    getClientWs(clientOptions?: Partial<ClientOptions> | undefined) {
       return createClientWs({
         ...clientOptions,
         port,
