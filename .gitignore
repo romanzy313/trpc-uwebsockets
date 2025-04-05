@@ -6,7 +6,9 @@ node_modules/
 .vscode
 .cache
 coverage
+
 *-*.tgz
+package.tgz
 
 dist
 types
