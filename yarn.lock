@@ -852,22 +852,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trpc/client@npm:^11.0.0":
-  version: 11.0.0
-  resolution: "@trpc/client@npm:11.0.0"
+"@trpc/client@npm:^11.0.2":
+  version: 11.0.2
+  resolution: "@trpc/client@npm:11.0.2"
   peerDependencies:
-    "@trpc/server": 11.0.0
+    "@trpc/server": 11.0.2
     typescript: ">=5.7.2"
-  checksum: 10c0/d741f46dbfcb977d9b7d658703f2b354a32ee942a321cf7a986e778059ea8ee9249eaeb1d34fd1f50d4f059a7a86a4270c68bcda485e9bc9800de1ed3532af53
+  checksum: 10c0/47bbb4def73b8b889c8caea0d459770942211a1f25e6795cb9eae728c3a864df543a202d2b13c3710a802b7db7c8e388f19a874a5e99b6434cf8153c67633b07
   languageName: node
   linkType: hard
 
-"@trpc/server@npm:^11.0.0":
-  version: 11.0.0
-  resolution: "@trpc/server@npm:11.0.0"
+"@trpc/server@npm:^11.0.2":
+  version: 11.0.2
+  resolution: "@trpc/server@npm:11.0.2"
   peerDependencies:
     typescript: ">=5.7.2"
-  checksum: 10c0/0fa6b9fd44d0378471df827fa1f35623d2ef463fe1af7c89de9433b22c81d0db5d60695a77a5ca723e91d2b77be08a48dee77703851109151c8e9febab478125
+  checksum: 10c0/8f23bf01d88cde146147d396e3fedb73d4776dc94f93ea8f6689140b8b8e2852a6e2fb7392120b62d74b9baef978923930b627dc7cf9698c10af581f5ce49b6b
   languageName: node
   linkType: hard
 
@@ -927,7 +927,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node-fetch@npm:^2.6.11":
+"@types/node-fetch@npm:^2.6.12":
   version: 2.6.12
   resolution: "@types/node-fetch@npm:2.6.12"
   dependencies:
@@ -3669,10 +3669,10 @@ __metadata:
   dependencies:
     "@eslint/eslintrc": "npm:^3.3.1"
     "@eslint/js": "npm:^9.24.0"
-    "@trpc/client": "npm:^11.0.0"
-    "@trpc/server": "npm:^11.0.0"
+    "@trpc/client": "npm:^11.0.2"
+    "@trpc/server": "npm:^11.0.2"
     "@types/node": "npm:^20.11.5"
-    "@types/node-fetch": "npm:^2.6.11"
+    "@types/node-fetch": "npm:^2.6.12"
     "@types/ws": "npm:^8.5.10"
     "@typescript-eslint/eslint-plugin": "npm:^8.29.0"
     "@typescript-eslint/parser": "npm:^8.29.0"
@@ -3688,7 +3688,7 @@ __metadata:
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
     ts-node: "npm:^10.9.2"
-    typescript: "npm:^5.8.2"
+    typescript: "npm:^5.8.3"
     uWebSockets.js: "uNetworking/uWebSockets.js#v20.51.0"
     vite: "npm:^6.2.5"
     vitest: "npm:^3.1.1"
@@ -3760,23 +3760,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.8.2":
-  version: 5.8.2
-  resolution: "typescript@npm:5.8.2"
+"typescript@npm:^5.8.3":
+  version: 5.8.3
+  resolution: "typescript@npm:5.8.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/5c4f6fbf1c6389b6928fe7b8fcd5dc73bb2d58cd4e3883f1d774ed5bd83b151cbac6b7ecf11723de56d4676daeba8713894b1e9af56174f2f9780ae7848ec3c6
+  checksum: 10c0/5f8bb01196e542e64d44db3d16ee0e4063ce4f3e3966df6005f2588e86d91c03e1fb131c2581baf0fb65ee79669eea6e161cd448178986587e9f6844446dbb48
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.8.2#optional!builtin<compat/typescript>":
-  version: 5.8.2
-  resolution: "typescript@patch:typescript@npm%3A5.8.2#optional!builtin<compat/typescript>::version=5.8.2&hash=5786d5"
+"typescript@patch:typescript@npm%3A^5.8.3#optional!builtin<compat/typescript>":
+  version: 5.8.3
+  resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/5448a08e595cc558ab321e49d4cac64fb43d1fa106584f6ff9a8d8e592111b373a995a1d5c7f3046211c8a37201eb6d0f1566f15cdb7a62a5e3be01d087848e2
+  checksum: 10c0/39117e346ff8ebd87ae1510b3a77d5d92dae5a89bde588c747d25da5c146603a99c8ee588c7ef80faaf123d89ed46f6dbd918d534d641083177d5fac38b8a1cb
   languageName: node
   linkType: hard
 
