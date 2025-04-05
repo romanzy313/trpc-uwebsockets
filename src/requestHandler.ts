@@ -23,18 +23,18 @@ export interface CreateHandlerOptions<TRouter extends AnyRouter> {
    * Url path prefix where the tRPC server will be registered.
    * @default ''
    */
-  prefix?: string;
+  prefix?: string | undefined;
   /**
    * Specify if SSL is used. Set to true if your application is served over HTTPS.
    * @default false
    */
-  ssl?: boolean;
+  ssl?: boolean | undefined;
   /**
    * Maximum request body size in bytes. If the body is larger than this, the request will be aborted.
    * Null value allows for unlimited body size.
    * @default null
    */
-  maxBodySize?: number;
+  maxBodySize?: number | undefined;
   trpcOptions: HandlerOptions<TRouter, Request, HttpResponseDecorated>;
 }
 
@@ -45,7 +45,7 @@ export type CreateContextOptions = NodeHTTPCreateContextFnOptions<
   /**
    * Client must be passed along when the context is created.
    **/
-  client?: WebSocketConnection;
+  client?: WebSocketConnection | undefined;
 };
 
 /**

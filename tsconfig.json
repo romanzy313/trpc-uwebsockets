@@ -9,7 +9,7 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "outDir": "dist",
-    "lib": ["esnext", "dom"],
+    "lib": ["esnext"],
     "typeRoots": ["node_modules/@types"],
     "types": ["node"],
     "strict": true,
@@ -18,7 +18,8 @@
     "noImplicitReturns": false,
     "noImplicitThis": true,
     "noUnusedLocals": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/**/*.spec.ts"]
