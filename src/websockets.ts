@@ -463,9 +463,12 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       res.onAborted(() => {
         resDecorated.aborted = true;
       });
-      const reqFetch = uWsToRequest(req, resDecorated, {
+      const reqFetch = await uWsToRequest(req, resDecorated, {
         maxBodySize: null,
       });
+      if (resDecorated.aborted) {
+        return;
+      }
 
       const secWebSocketKey = req.getHeader('sec-websocket-key');
       const secWebSocketProtocol = req.getHeader('sec-websocket-protocol');
@@ -485,13 +488,15 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         url: createURL(req, resDecorated.sll ? 'wss' : 'ws'),
       };
 
-      res.upgrade(
-        data,
-        secWebSocketKey,
-        secWebSocketProtocol,
-        secWebSocketExtensions,
-        context
-      );
+      res.cork(() => {
+        res.upgrade(
+          data,
+          secWebSocketKey,
+          secWebSocketProtocol,
+          secWebSocketExtensions,
+          context
+        );
+      });
     },
     async open(client) {
       allClients.add(client);

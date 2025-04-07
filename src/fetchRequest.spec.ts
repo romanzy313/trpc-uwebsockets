@@ -16,7 +16,7 @@ function createServer(opts: { maxBodySize: number | null }) {
   app.any('/*', async (res, req) => {
     const resDecorated = decorateHttpResponse(res);
 
-    const request = uWsToRequest(req, resDecorated, opts);
+    const request = await uWsToRequest(req, resDecorated, opts);
     await handle!(request).then(resolveHandler).catch(rejectHandler);
     res.cork(() => {
       res.end();

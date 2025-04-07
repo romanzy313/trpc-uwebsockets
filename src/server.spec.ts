@@ -40,8 +40,11 @@ const config = {
   prefix: '/trpc',
 };
 
-function createContext({ req, res, info, client }: CreateContextOptions) {
+async function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
+
+  // add arbitrary delay to simulate async response
+  // await new Promise((resolve) => setTimeout(resolve, 10));
 
   if (req.headers.has('throw')) {
     throw new TRPCError({
@@ -71,7 +74,9 @@ function createContext({ req, res, info, client }: CreateContextOptions) {
   // filter out so that this is not triggered during subscription
   // but really, responseMeta should be used instead!
   if (info.type === 'query') {
-    res.writeHeader('x-test', 'true');
+    res.cork(() => {
+      res.writeHeader('x-test', 'true');
+    });
   }
   return { req, res, user, info, client };
 }

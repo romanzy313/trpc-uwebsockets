@@ -62,9 +62,12 @@ export function applyRequestHandler<TRouter extends AnyRouter>(
   const handler = async (res: HttpResponse, req: HttpRequest) => {
     const url = req.getUrl().substring(prefix.length + 1);
     const resDecorated = decorateHttpResponse(res, opts.ssl);
-    const reqFetch = uWsToRequest(req, resDecorated, {
+    const reqFetch = await uWsToRequest(req, resDecorated, {
       maxBodySize: opts.maxBodySize ?? null,
     });
+    if (resDecorated.aborted) {
+      return;
+    }
 
     await uWsRequestHandler({
       ...opts.trpcOptions,

@@ -22,7 +22,59 @@ export function decorateHttpResponse(
   return resDecorated;
 }
 
-export function uWsToRequest(
+const getPostBody = (res: HttpResponse, maxBodySize: number | null) => {
+  return new Promise<
+    | { data: Buffer; ok: true; preprocessed: boolean }
+    | { error: TRPCError; ok: false }
+  >((resolve) => {
+    let buffer: Buffer | undefined;
+    let size = 0;
+
+    res.onData((ab, isLast) => {
+      size += ab.byteLength;
+      if (maxBodySize && size >= maxBodySize) {
+        resolve({
+          ok: false,
+          error: new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }),
+        });
+      }
+
+      //resolve if there is only one chunk
+      if (buffer === undefined && isLast) {
+        resolve({
+          ok: true,
+          data: Buffer.from(ab),
+          preprocessed: false,
+        });
+        return;
+      }
+
+      const chunk = Buffer.from(ab);
+
+      if (buffer) {
+        //else accumulate
+        buffer = Buffer.concat([buffer, chunk]);
+      } else buffer = Buffer.concat([chunk]);
+
+      if (isLast) {
+        resolve({
+          ok: true,
+          data: buffer,
+          preprocessed: false,
+        });
+      }
+    });
+
+    res.onAborted(() => {
+      resolve({
+        ok: false,
+        error: new TRPCError({ code: 'CLIENT_CLOSED_REQUEST' }),
+      });
+    });
+  });
+};
+
+export async function uWsToRequest(
   req: HttpRequest,
   res: HttpResponseDecorated,
   opts: {
@@ -31,7 +83,7 @@ export function uWsToRequest(
      */
     maxBodySize: number | null;
   }
-): Request {
+): Promise<Request> {
   const ac = new AbortController();
 
   const onAbort = () => {
@@ -53,7 +105,19 @@ export function uWsToRequest(
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
-    init.body = createBody(res, opts);
+    const parsedBody = await getPostBody(res, opts.maxBodySize);
+    if (parsedBody.ok) {
+      init.body = parsedBody.data;
+    } else {
+      init.body = new ReadableStream({
+        start(controller) {
+          controller.error(parsedBody.error);
+        },
+        cancel() {
+          res.close();
+        },
+      });
+    }
     init.duplex = 'half';
   }
 
@@ -98,59 +162,6 @@ export function createURL(req: HttpRequest, protocol: string): URL {
       cause,
     });
   }
-}
-
-function createBody(
-  res: HttpResponse,
-  opts: {
-    maxBodySize: number | null;
-  }
-): RequestInit['body'] {
-  let size = 0;
-  let hasClosed = false;
-
-  return new ReadableStream({
-    start(controller) {
-      const onData = (ab: ArrayBuffer, isLast: boolean) => {
-        // special case of empty body
-        if (size == 0 && ab.byteLength == 0 && isLast) {
-          onEnd();
-          return;
-        }
-
-        size += ab.byteLength;
-        if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          controller.enqueue(new Uint8Array(ab));
-
-          if (isLast) {
-            onEnd();
-          }
-
-          return;
-        }
-        controller.error(
-          new TRPCError({
-            code: 'PAYLOAD_TOO_LARGE',
-          })
-        );
-        hasClosed = true;
-      };
-
-      const onEnd = () => {
-        if (hasClosed) {
-          return;
-        }
-        hasClosed = true;
-        controller.close();
-      };
-
-      res.onData(onData);
-      res.onAborted(onEnd);
-    },
-    cancel() {
-      res.close();
-    },
-  });
 }
 
 export async function uWsSendResponse(
