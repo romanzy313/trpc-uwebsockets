@@ -70,10 +70,11 @@ async function createContext({ req, res, info, client }: CreateContextOptions) {
     });
   }
 
-  // filter out so that this is not triggered during subscription
-  // but really, responseMeta should be used instead!
+  // test writing headers inside the context
   if (info.type === 'query') {
-    res.writeHeader('x-test', 'true');
+    res.cork(() => {
+      res.writeHeader('x-test', 'true');
+    });
   }
   return { req, res, user, info, client };
 }
