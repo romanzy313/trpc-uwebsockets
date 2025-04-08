@@ -1,7 +1,11 @@
 import uWs from 'uWebSockets.js';
 import { describe, expect, test } from 'vitest';
 
-import { decorateHttpResponse, uWsToRequest } from './fetchCompat';
+import {
+  decorateHttpResponse,
+  uWsSendResponseStreamed,
+  uWsToRequest,
+} from './fetchCompat';
 // source: packages/server/src/adapters/node-http/incomingMessageToRequest.test.ts
 
 function createServer(opts: { maxBodySize: number | null }) {
@@ -13,7 +17,7 @@ function createServer(opts: { maxBodySize: number | null }) {
 
   const app = uWs.App();
 
-  app.any('/*', async (res, req) => {
+  app.any('/handle', async (res, req) => {
     const resDecorated = decorateHttpResponse(res);
 
     const request = uWsToRequest(req, resDecorated, opts);
@@ -21,6 +25,20 @@ function createServer(opts: { maxBodySize: number | null }) {
     res.cork(() => {
       res.end();
     });
+  });
+
+  app.any('/stream', async (res, req) => {
+    const resDecorated = decorateHttpResponse(res);
+
+    const request = uWsToRequest(req, resDecorated, opts);
+    const bytes = await request.bytes();
+
+    const resFetch = new Response('hello world', {
+      status: 200,
+      statusText: '200 OK',
+      headers: { 'request-size': bytes.length.toString() },
+    });
+    await uWsSendResponseStreamed(resFetch, resDecorated);
   });
 
   let socket: uWs.us_listen_socket | false | null = null;
@@ -46,7 +64,7 @@ function createServer(opts: { maxBodySize: number | null }) {
     },
     fetch: async (
       opts: RequestInit & {
-        path?: string;
+        path: string;
       },
       _handle: (request: Request) => Promise<void>
     ) => {
@@ -57,20 +75,60 @@ function createServer(opts: { maxBodySize: number | null }) {
         rejectHandler = reject;
       });
 
-      await fetch(`http://localhost:${port}${opts.path ?? ''}`, {
+      await fetch(`http://localhost:${port}${opts.path ?? '/'}`, {
         ...opts,
       });
       await promise;
     },
+    fetchWithResponse: async (
+      opts: RequestInit & {
+        path?: string;
+      }
+    ) => {
+      return await fetch(`http://localhost:${port}${opts.path ?? ''}`, {
+        ...opts,
+      });
+    },
   };
+}
+
+function slowReadableStream(
+  size: number,
+  count: number,
+  sleepMs: number
+): ReadableStream {
+  const body = '0'.repeat(size);
+
+  return new ReadableStream({
+    start(controller) {
+      let i = 0;
+      function pump() {
+        if (i >= count) {
+          controller.close();
+          return;
+        }
+        setTimeout(() => {
+          controller.enqueue(body);
+          i++;
+          pump();
+        }, sleepMs);
+      }
+      pump();
+    },
+  });
 }
 
 describe('request', () => {
   test('basic GET', async () => {
     const server = createServer({ maxBodySize: null });
-    await server.fetch({}, async (request) => {
-      expect(request.method).toBe('GET');
-    });
+    await server.fetch(
+      {
+        path: '/handle',
+      },
+      async (request) => {
+        expect(request.method).toBe('GET');
+      }
+    );
     await server.close();
   });
 
@@ -79,6 +137,7 @@ describe('request', () => {
 
     await server.fetch(
       {
+        path: '/handle',
         method: 'POST',
       },
       async (request) => {
@@ -97,6 +156,7 @@ describe('request', () => {
 
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body: JSON.stringify({ hello: 'world' }),
           headers: {
@@ -117,6 +177,7 @@ describe('request', () => {
 
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body,
         },
@@ -137,6 +198,7 @@ describe('request', () => {
 
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body: '0'.repeat(11),
         },
@@ -155,6 +217,7 @@ describe('request', () => {
 
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body: '0'.repeat(9),
         },
@@ -177,11 +240,11 @@ describe('request', () => {
       await server.fetch(
         {
           method: 'GET',
-          path: '/?hello=world',
+          path: '/handle?hello=world',
         },
         async (request) => {
           const url = new URL(request.url);
-          expect(url.pathname).toBe('/');
+          expect(url.pathname).toBe('/handle');
           expect(url.searchParams.get('hello')).toBe('world');
           // expect(url.searchParams.size).toBe(1);
         }
@@ -194,16 +257,32 @@ describe('request', () => {
       await server.fetch(
         {
           method: 'GET',
-          path: '/',
+          path: '/handle',
         },
         async (request) => {
           const url = new URL(request.url);
-          expect(url.pathname).toBe('/');
+          expect(url.pathname).toBe('/handle');
           expect(url.searchParams.size).toBe(0);
         }
       );
     }
     await server.close();
+  });
+
+  test('slow requests are handled', async () => {
+    const server = createServer({ maxBodySize: null });
+
+    const readableStream = slowReadableStream(100, 3, 50);
+    const res = await server.fetchWithResponse({
+      path: '/stream',
+      method: 'POST',
+      body: readableStream,
+      // @ts-expect-error needed for using the stream
+      duplex: 'half',
+    });
+
+    expect(res.ok).equals(true);
+    expect(res.headers.get('request-size')).equals('300');
   });
 
   // testing aborts without mocks...is painful...
@@ -220,6 +299,7 @@ describe('request', () => {
     try {
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body,
           signal: controller.signal,
@@ -254,6 +334,7 @@ describe('request', () => {
       }, 5);
       await server.fetch(
         {
+          path: '/handle',
           method: 'POST',
           body,
           signal: controller.signal,
