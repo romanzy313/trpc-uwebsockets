@@ -109,43 +109,35 @@ function createBody(
   let size = 0;
   let hasClosed = false;
 
-  return new ReadableStream({
+  return new ReadableStream<Uint8Array>({
     start(controller) {
-      const onData = (ab: ArrayBuffer, isLast: boolean) => {
-        // special case of empty body
-        if (size == 0 && ab.byteLength == 0 && isLast) {
-          onEnd();
-          return;
-        }
+      res.onData((tempChunk, isLast) => {
+        if (hasClosed) return;
 
-        size += ab.byteLength;
+        // This copies the buffer *immediately* and avoids using a detached buffer
+        const chunk = new Uint8Array(tempChunk.byteLength);
+        chunk.set(new Uint8Array(tempChunk)); // must be done before enqueue
+        size += chunk.byteLength;
+
         if (!opts.maxBodySize || size <= opts.maxBodySize) {
-          controller.enqueue(new Uint8Array(ab));
+          controller.enqueue(chunk);
 
           if (isLast) {
-            onEnd();
+            hasClosed = true;
+            controller.close();
           }
-
-          return;
+        } else {
+          hasClosed = true;
+          controller.error(new TRPCError({ code: 'PAYLOAD_TOO_LARGE' }));
         }
-        controller.error(
-          new TRPCError({
-            code: 'PAYLOAD_TOO_LARGE',
-          })
-        );
-        hasClosed = true;
-      };
+      });
 
-      const onEnd = () => {
-        if (hasClosed) {
-          return;
+      res.onAborted(() => {
+        if (!hasClosed) {
+          hasClosed = true;
+          controller.error(new TRPCError({ code: 'CLIENT_CLOSED_REQUEST' }));
         }
-        hasClosed = true;
-        controller.close();
-      };
-
-      res.onData(onData);
-      res.onAborted(onEnd);
+      });
     },
     cancel() {
       res.close();

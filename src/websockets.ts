@@ -136,7 +136,8 @@ type WebsocketData = {
   abortController: AbortController;
   useConnectionParams: boolean;
   contextResolveAttempted: boolean;
-  ctx: inferRouterContext<AnyRouter> | null;
+  ctxPromise: MaybePromise<inferRouterContext<AnyRouter>> | 'temp';
+  ctx: inferRouterContext<AnyRouter> | undefined;
   keepAlive: KeepAliver | null;
   url: URL;
 };
@@ -170,29 +171,13 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
   // it returns false if context threw, and execution must be halted.
   // this function will cleanup the connection
   async function tryResolveContext(
-    client: WebSocket<WebsocketData>,
-    getConnectionParams: () => TRPCRequestInfo['connectionParams']
+    client: WebSocket<WebsocketData>
   ): Promise<boolean> {
     const data = client.getUserData();
     data.contextResolveAttempted = true;
 
     try {
-      data.ctx = await createContext?.({
-        req: data.req,
-        // @ts-expect-error res cant be used, but undefined is needed here
-        // for type compatibility with main handler
-        res: undefined,
-        client,
-        info: {
-          connectionParams: getConnectionParams(),
-          calls: [],
-          isBatchCall: false,
-          accept: null,
-          type: 'unknown',
-          signal: data.abortController.signal,
-          url: data.url,
-        },
-      });
+      data.ctx = await data.ctxPromise;
       return true;
     } catch (cause) {
       // console.error('could not resolve context, cause', cause);
@@ -232,7 +217,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     client: WebSocket<WebsocketData>,
     msg: TRPCClientOutgoingMessage
   ) {
-    const { clientSubscriptions, ctx, req } = client.getUserData();
+    const data = client.getUserData();
 
     const { id, jsonrpc } = msg;
 
@@ -244,7 +229,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       });
     }
     if (msg.method === 'subscription.stop') {
-      clientSubscriptions.get(id)?.abort();
+      data.clientSubscriptions.get(id)?.abort();
       return;
     }
     const { path, lastEventId } = msg.params;
@@ -263,8 +248,9 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           };
         }
       }
+      await data.ctxPromise;
 
-      if (ctx === null) {
+      if (data.ctx === null) {
         throw new Error('assertion: context should never be null');
       }
 
@@ -273,7 +259,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         router,
         path,
         getRawInput: async () => input,
-        ctx,
+        ctx: data.ctx,
         type,
         signal: abortController.signal,
       });
@@ -307,7 +293,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
       }
 
       /* istanbul ignore next -- @preserve */
-      if (clientSubscriptions.has(id)) {
+      if (data.clientSubscriptions.has(id)) {
         // duplicate request ids for client
 
         throw new TRPCError({
@@ -352,7 +338,14 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           }
           if (next instanceof Error) {
             const error = getTRPCErrorFromUnknown(next);
-            opts.onError?.({ error, path, type, ctx, req, input });
+            opts.onError?.({
+              error,
+              path,
+              type,
+              ctx: data.ctx,
+              req: data.req,
+              input,
+            });
             respond(client, {
               id,
               jsonrpc,
@@ -362,7 +355,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
                 type,
                 path,
                 input,
-                ctx,
+                ctx: data.ctx,
               }),
             });
             break;
@@ -403,10 +396,17 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
             type: 'stopped',
           },
         });
-        clientSubscriptions.delete(id);
+        data.clientSubscriptions.delete(id);
       }).catch((cause) => {
         const error = getTRPCErrorFromUnknown(cause);
-        opts.onError?.({ error, path, type, ctx, req, input });
+        opts.onError?.({
+          error,
+          path,
+          type,
+          ctx: data.ctx,
+          req: data.req,
+          input,
+        });
         respond(client, {
           id,
           jsonrpc,
@@ -416,12 +416,12 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
             type,
             path,
             input,
-            ctx,
+            ctx: data.ctx,
           }),
         });
         abortController.abort();
       });
-      clientSubscriptions.set(id, abortController);
+      data.clientSubscriptions.set(id, abortController);
 
       respond(client, {
         id,
@@ -433,7 +433,14 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     } catch (cause) /* istanbul ignore next -- @preserve */ {
       // procedure threw an error
       const error = getTRPCErrorFromUnknown(cause);
-      opts.onError?.({ error, path, type, ctx, req, input });
+      opts.onError?.({
+        error,
+        path,
+        type,
+        ctx: data.ctx,
+        req: data.req,
+        input,
+      });
       respond(client, {
         id,
         jsonrpc,
@@ -443,7 +450,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           type,
           path,
           input,
-          ctx,
+          ctx: data.ctx,
         }),
       });
     }
@@ -457,7 +464,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     maxPayloadLength: opts.uWsBehaviorOptions?.maxPayloadLength,
     maxLifetime: opts.uWsBehaviorOptions?.maxLifetime,
     idleTimeout: opts.uWsBehaviorOptions?.idleTimeout,
-    async upgrade(res, req, context) {
+    upgrade(res, req, context) {
       const resDecorated = decorateHttpResponse(res);
 
       res.onAborted(() => {
@@ -478,6 +485,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         clientSubscriptions,
         abortController,
         req: reqFetch,
+        ctxPromise: 'temp',
         ctx: null,
         contextResolveAttempted: false,
         useConnectionParams: false,
@@ -498,11 +506,28 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
       const data = client.getUserData();
 
+      data.ctxPromise = createContext?.({
+        req: data.req,
+        // @ts-expect-error res cant be used, but undefined is needed here
+        // for type compatibility with main handler
+        res: undefined,
+        client,
+        info: {
+          connectionParams: null,
+          calls: [],
+          isBatchCall: false,
+          accept: null,
+          type: 'unknown',
+          signal: data.abortController.signal,
+          url: data.url,
+        },
+      });
+
       data.useConnectionParams =
         new URL(data.req.url).searchParams.get('connectionParams') === '1';
 
       if (!data.useConnectionParams) {
-        const ok = await tryResolveContext(client, () => null);
+        const ok = await tryResolveContext(client);
 
         if (!ok) return;
       }
@@ -538,26 +563,45 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
           throw new Error('assertion: context should not be null');
         }
 
-        const ok = await tryResolveContext(client, () => {
-          let msg;
-          try {
-            msg = JSON.parse(msgStr) as TRPCConnectionParamsMessage;
+        data.ctxPromise = createContext?.({
+          req: data.req,
+          // @ts-expect-error res cant be used, but undefined is needed here
+          // for type compatibility with main handler
+          res: undefined,
+          client,
+          info: {
+            connectionParams: (() => {
+              let msg;
+              try {
+                msg = JSON.parse(msgStr) as TRPCConnectionParamsMessage;
 
-            if (!isObject(msg)) {
-              throw new Error('Message was not an object');
-            }
-          } catch (cause) {
-            throw new TRPCError({
-              code: 'PARSE_ERROR',
-              message: `Malformed TRPCConnectionParamsMessage`,
-              cause,
-            });
-          }
+                if (!isObject(msg)) {
+                  throw new Error('Message was not an object');
+                }
+              } catch (cause) {
+                throw new TRPCError({
+                  code: 'PARSE_ERROR',
+                  message: `Malformed TRPCConnectionParamsMessage`,
+                  cause,
+                });
+              }
 
-          const connectionParams = parseConnectionParamsFromUnknown(msg.data);
+              const connectionParams = parseConnectionParamsFromUnknown(
+                msg.data
+              );
 
-          return connectionParams;
+              return connectionParams;
+            })(),
+            calls: [],
+            isBatchCall: false,
+            accept: null,
+            type: 'unknown',
+            signal: data.abortController.signal,
+            url: data.url,
+          },
         });
+
+        const ok = await tryResolveContext(client);
 
         if (!ok) return;
       }
