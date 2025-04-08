@@ -18,7 +18,7 @@
     "test:coverage": "vitest --coverage",
     "test:publish": "yarn test && yarn build && yarn pack",
     "publish:main": "bash -c 'source .env' && yarn npm publish",
-    "publish:next": "bash -c 'source .env' && yarn npm publish --tag next",
+    "publish:canary": "bash -c 'source .env' && yarn npm publish --tag canary",
     "prepack": "yarn build",
     "prepublish": "yarn clean && yarn prettier && yarn lint && yarn test",
     "clean": "rimraf -rf ./dist && rimraf -rf ./types && rimraf -rf ./coverage && rimraf -rf ./package.tgz",
