@@ -40,8 +40,10 @@ const config = {
   prefix: '/trpc',
 };
 
-function createContext({ req, res, info, client }: CreateContextOptions) {
+async function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
+
+  await new Promise((resolve) => setTimeout(resolve, 10));
 
   if (req.headers.has('throw')) {
     throw new TRPCError({
@@ -548,7 +550,6 @@ describe('server', () => {
       }
     `);
     }
-
     {
       // batch
       const { client } = app.getClient('batch');
@@ -820,16 +821,24 @@ describe('websocket', () => {
         onClose(cause) {
           closeCode = cause?.code;
         },
+        onError(cause) {
+          console.warn('on error called', cause);
+        },
       },
     });
 
-    client.count.subscribe(
-      {
-        from: 0,
-        count: 10,
-      },
-      {}
-    );
+    try {
+      await client.echo.query('hi');
+    } catch (err) {
+      //
+    }
+    // client.count.subscribe(
+    //   {
+    //     from: 0,
+    //     count: 10,
+    //   },
+    //   {}
+    // );
 
     await vi.waitFor(() => {
       expect(closeCode).toEqual(1008);
