@@ -47,6 +47,7 @@ import {
   decorateHttpResponse,
   HttpResponseDecorated,
   uWsToRequest,
+  uWsToRequestNoBody,
 } from './fetchCompat';
 
 type RemoveFunctions<T> = {
@@ -457,15 +458,13 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
     maxPayloadLength: opts.uWsBehaviorOptions?.maxPayloadLength,
     maxLifetime: opts.uWsBehaviorOptions?.maxLifetime,
     idleTimeout: opts.uWsBehaviorOptions?.idleTimeout,
-    async upgrade(res, req, context) {
+    upgrade(res, req, context) {
       const resDecorated = decorateHttpResponse(res);
 
       res.onAborted(() => {
         resDecorated.aborted = true;
       });
-      const reqFetch = uWsToRequest(req, resDecorated, {
-        maxBodySize: null,
-      });
+      const reqFetch = uWsToRequestNoBody(req, resDecorated);
 
       const secWebSocketKey = req.getHeader('sec-websocket-key');
       const secWebSocketProtocol = req.getHeader('sec-websocket-protocol');

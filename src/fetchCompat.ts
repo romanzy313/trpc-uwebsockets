@@ -22,6 +22,26 @@ export function decorateHttpResponse(
   return resDecorated;
 }
 
+export function uWsToRequestNoBody(
+  req: HttpRequest,
+  res: HttpResponseDecorated
+): Request {
+  const headers = createHeaders(req);
+  const method = req.getCaseSensitiveMethod().toUpperCase();
+  const isSsl = res.ssl;
+
+  const url = createURL(req, isSsl ? 'https' : 'http');
+
+  const init: RequestInit = {
+    headers: headers,
+    method: method,
+  };
+
+  const request = new Request(url, init);
+
+  return request;
+}
+
 export function uWsToRequest(
   req: HttpRequest,
   res: HttpResponseDecorated,
