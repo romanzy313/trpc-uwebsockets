@@ -569,6 +569,47 @@ describe('websocket', () => {
       expect(closeCode).toEqual(1008);
     });
   });
+
+  test('keep alive', async () => {
+    const ctx = defaultFactory();
+    let closeCode: number | undefined = undefined;
+    const { client, wsClient } = ctx.clientWs({
+      wsClientOptions: {
+        onClose(cause) {
+          closeCode = cause?.code;
+        },
+        keepAlive: {
+          enabled: true,
+          intervalMs: 100,
+          pongTimeoutMs: 200,
+        },
+      },
+    });
+    const { unsubscribe } = client.waitForMs.subscribe(2_000, {});
+    await vi.waitFor(() => {
+      expect(wsClient.connection!.state).toBe('open');
+    });
+    let pongCount = 0;
+    wsClient.connection!.ws!.addEventListener('message', (ev) => {
+      if (ev.data === 'PONG') {
+        pongCount++;
+      }
+    });
+    await vi.waitFor(
+      () => {
+        expect(pongCount).toEqual(4);
+        expect(closeCode).toEqual(undefined);
+      },
+      {
+        timeout: 2_000,
+      }
+    );
+    unsubscribe();
+    wsClient.close();
+    await vi.waitFor(() => {
+      expect(closeCode).toEqual(1005);
+    });
+  });
   //   // for some reason client.publish does not work, even though it should
   //   test('uWebsockets pubsub', { skip: true }, async () => {
   //     const clientWs = new WebSocket(`ws://localhost:${app.port}/pubsub`);
@@ -602,44 +643,5 @@ describe('websocket', () => {
   //     });
   //     sub.unsubscribe();
   //     clientWs.close();
-  //   });
-  //   test('keep alive', async () => {
-  //     let closeCode: number | undefined = undefined;
-  //     const { client, wsClient } = app.clientWs({
-  //       wsClientOptions: {
-  //         onClose(cause) {
-  //           closeCode = cause?.code;
-  //         },
-  //         keepAlive: {
-  //           enabled: true,
-  //           intervalMs: 200,
-  //           pongTimeoutMs: 400,
-  //         },
-  //       },
-  //     });
-  //     const { unsubscribe } = client.waitForMs.subscribe(2_000, {});
-  //     await vi.waitFor(() => {
-  //       expect(wsClient.connection!.state).toBe('open');
-  //     });
-  //     let pongCount = 0;
-  //     wsClient.connection!.ws!.addEventListener('message', (ev) => {
-  //       if (ev.data === 'PONG') {
-  //         pongCount++;
-  //       }
-  //     });
-  //     await vi.waitFor(
-  //       () => {
-  //         expect(pongCount).toEqual(4);
-  //         expect(closeCode).toEqual(undefined);
-  //       },
-  //       {
-  //         timeout: 2_000,
-  //       }
-  //     );
-  //     unsubscribe();
-  //     wsClient.close();
-  //     await vi.waitFor(() => {
-  //       expect(closeCode).toEqual(1005);
-  //     });
   //   });
 });
