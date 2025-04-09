@@ -58,16 +58,17 @@ type RemoveFunctions<T> = {
  */
 export type WebSocketBehaviorOptions = RemoveFunctions<WebSocketBehavior<any>>;
 
-// copying over packages/server/src/adapters/ws.ts
-
 export type WebSocketConnection = WebSocket<WebsocketData>;
+
+// following packages/server/src/adapters/ws.ts
 
 /**
  * @public
  */
 export type CreateWSSContextFnOptions = NodeHTTPCreateContextFnOptions<
   Request,
-  HttpResponseDecorated // res is never used here
+  HttpResponseDecorated
+  // WebSocketConnection
 > & {
   client: WebSocketConnection;
 };
@@ -508,8 +509,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         try {
           data.ctx = await createContext?.({
             req: data.req,
-            // @ts-expect-error needed for type compatibility
-            res: undefined,
+            res: client as unknown as HttpResponseDecorated,
+            client: client,
             info: {
               connectionParams: useConnectionParams
                 ? getConnectionParams(msgStr)
@@ -519,7 +520,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
               accept: null,
               type: 'unknown',
               signal: data.abortController.signal,
-              url: null,
+              url: data.url, // was null
             },
           });
           data.ctxCompleter.resolve();
@@ -544,16 +545,12 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
               ctx: data.ctx,
             }),
           });
-
           data.ctxCompleter.reject(error);
+
           // close in next tick
           (globalThis.setImmediate ?? globalThis.setTimeout)(() => {
             client.end(1008);
           });
-
-          // setTimeout(() => {
-          //   client.end(1008);
-          // }, 1000);
         }
 
         if (useConnectionParams) {
