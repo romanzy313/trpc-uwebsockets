@@ -504,7 +504,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         data.ctxCompleter = createCompleter();
 
         const useConnectionParams =
-          new URL(data.req.url).searchParams.get('connectionParams') === '1';
+          data.url.searchParams.get('connectionParams') === '1';
 
         try {
           data.ctx = await createContext?.({
@@ -520,7 +520,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
               accept: null,
               type: 'unknown',
               signal: data.abortController.signal,
-              url: data.url, // was null
+              url: data.url,
             },
           });
           data.ctxCompleter.resolve();
