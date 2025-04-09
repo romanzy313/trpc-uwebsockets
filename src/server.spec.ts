@@ -198,7 +198,9 @@ afterEach(() => {
   stopFn();
 });
 
-async function defaultFactory(config?: { createContext?: () => Promise<any> }) {
+async function defaultFactory(config?: {
+  createContext?: (opts: CreateContextOptions) => Promise<any>;
+}) {
   const router = createAppRouter();
 
   const factoryVal = await testFactory({
@@ -487,6 +489,33 @@ describe('websocket', () => {
     const message = await promise;
     expect(message.toString()).toBe('hello');
     client.close();
+  });
+
+  test('properly passes context', async () => {
+    const contextDone = vi.fn();
+    const ctx = await defaultFactory({
+      createContext: async ({ req, res, info, client }) => {
+        expect(client != null);
+        expect(res != null);
+        expect(client).equals(res);
+
+        // can still get the removeAddress from res
+        // hopefully this stays constant in ci?
+        const ip = new TextDecoder().decode(res.getRemoteAddressAsText());
+        expect(ip).equals('127.0.0.1');
+
+        // but other res-like features are not possible
+        expect('writeHeader' in res).equals(false);
+
+        contextDone();
+
+        return { req, res, info, client };
+      },
+    });
+    const client = ctx.clientWs().client;
+    await client.echo.query('testing');
+
+    expect(contextDone).toHaveBeenCalledOnce();
   });
 
   test('handles throwing context with connection params', async () => {
