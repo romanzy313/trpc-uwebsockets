@@ -198,12 +198,12 @@ afterEach(() => {
   stopFn();
 });
 
-async function defaultFactory(config?: {
+function defaultFactory(config?: {
   createContext?: (opts: CreateContextOptions) => Promise<any>;
 }) {
   const router = createAppRouter();
 
-  const factoryVal = await testFactory({
+  const factoryVal = testFactory({
     appRouter: router.appRouter,
     createContext: config?.createContext ?? createContext,
   });
@@ -218,7 +218,7 @@ async function defaultFactory(config?: {
 
 describe('server', () => {
   test('fetch GET smoke', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
 
     const res = await ctx.fetch(`/hello`, {
       method: 'GET',
@@ -232,7 +232,7 @@ describe('server', () => {
   });
 
   test('forwards response meta', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const res = await ctx.fetch(`/trpc/ping?input=${encodeURI('{}')}`, {});
     expect(res.status).toEqual(200);
     expect(res.headers.get('Access-Control-Allow-Origin')).toEqual('*'); // from the meta
@@ -240,7 +240,7 @@ describe('server', () => {
   });
 
   test('query', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const clients = [
       ctx.clientBatchStream().client,
       ctx.clientBatch().client,
@@ -267,7 +267,7 @@ describe('server', () => {
   });
 
   test('mutation', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const clients = [
       ctx.clientBatchStream().client,
       ctx.clientBatch().client,
@@ -289,7 +289,7 @@ describe('server', () => {
   });
 
   test('subscription', { timeout: 5000 }, async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const ee = ctx.ee;
     const clients = [ctx.clientSse().client, ctx.clientWs().client];
 
@@ -361,7 +361,7 @@ describe('server', () => {
   });
 
   test('streaming', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const tests = [ctx.clientBatchStream(), ctx.clientWs()];
 
     for (const { client, orderedResults } of tests) {
@@ -376,7 +376,7 @@ describe('server', () => {
   });
 
   test('batched requests', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const clients = [
       ctx.clientBatchStream().client,
       ctx.clientBatch().client,
@@ -393,7 +393,7 @@ describe('server', () => {
   });
 
   test('handles throwing context', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const clientOpts = {
       queryParams: {
         throw: 'expected_context_error',
@@ -422,7 +422,7 @@ describe('server', () => {
   });
 
   test('handles throwing procedure', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const clients = [
       ctx.clientBatchStream().client,
       ctx.clientBatch().client,
@@ -440,7 +440,7 @@ describe('server', () => {
 
   // TODO: sse does not propogate the error?
   test('handles throwing subscription', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     // const clients = [server.clientWs(), server.clientSse()];
     // const clients = [server.clientSse()];
     const clients = [ctx.clientWs()];
@@ -472,7 +472,7 @@ describe('server', () => {
 
 describe('websocket', () => {
   test('does not bind other websocket connection', async () => {
-    const ctx = await defaultFactory();
+    const ctx = defaultFactory();
     const client = new WebSocket(`ws://localhost:${ctx.port}/ws`);
     await new Promise<void>((resolve, reject) => {
       client.onopen = () => {
@@ -493,7 +493,7 @@ describe('websocket', () => {
 
   test('properly passes context', async () => {
     const contextDone = vi.fn();
-    const ctx = await defaultFactory({
+    const ctx = defaultFactory({
       createContext: async ({ req, res, info, client }) => {
         expect(client != null);
         expect(res != null);
@@ -519,7 +519,7 @@ describe('websocket', () => {
   });
 
   test('handles throwing context with connection params', async () => {
-    const server = await defaultFactory();
+    const server = defaultFactory();
     let closeCode: number | undefined = undefined;
     const { client } = server.clientWs({
       wsClientOptions: {
@@ -546,7 +546,7 @@ describe('websocket', () => {
     });
   });
   test('handles throwing context without connection params', async () => {
-    const server = await defaultFactory();
+    const server = defaultFactory();
     let closeCode: number | undefined = undefined;
     const { client } = server.clientWs({
       queryParams: {

@@ -6,10 +6,8 @@ import {
   WebSocketBehaviorOptions,
   WebsocketsKeepAlive,
 } from './websockets';
-import { initTRPC, TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 
-import { EventEmitter } from 'events';
 import uWs from 'uWebSockets.js';
 import {
   applyRequestHandler,
@@ -18,7 +16,6 @@ import {
 } from './requestHandler';
 import type {
   HTTPHeaders,
-  TRPCClient,
   TRPCLink,
   WebSocketClientOptions,
 } from '@trpc/client';
@@ -271,7 +268,7 @@ function createClientSse<TRouter extends AnyTRPCRouter>(
   return { client, orderedResults };
 }
 
-export async function testFactory<AppRouter extends AnyTRPCRouter>(
+export function testFactory<AppRouter extends AnyTRPCRouter>(
   serverOptions: ServerOptions<AppRouter>
 ) {
   const { instance, port, stop, onServerErrorSpy } = createServer({
