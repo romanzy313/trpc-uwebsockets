@@ -182,7 +182,10 @@ function createAppRouter() {
             return;
           }
           if (input.throw === i) {
-            throw new Error(i.toString());
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: i.toString(),
+            });
           }
           yield i;
         }
@@ -435,18 +438,15 @@ describe('server', () => {
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[TRPCClientError: expected_procedure_error]`
       );
+      expect(ctx.onServerErrorSpy).toHaveBeenCalled();
     }
   });
 
-  // TODO: sse does not propogate the error?
   test('handles throwing subscription', async () => {
     const ctx = defaultFactory();
-    // const clients = [server.clientWs(), server.clientSse()];
-    // const clients = [server.clientSse()];
-    const clients = [ctx.clientWs()];
+    const clients = [ctx.clientWs(), ctx.clientSse()];
 
     for (const { client, orderedResults } of clients) {
-      // const spy = vi.fn();
       let error: TRPCClientError<any> | null = null;
       client.count.subscribe(
         {
@@ -462,8 +462,7 @@ describe('server', () => {
       );
       await vi.waitFor(() => {
         expect(orderedResults).toEqual([0, 1, 2, 3, 4]);
-        expect(ctx.onServerErrorSpy).toBeCalledTimes(1);
-        // SSE, this is not propogated
+        expect(ctx.onServerErrorSpy).toHaveBeenCalled();
         expect(error!.message).toEqual(new TRPCClientError('5').message);
       });
     }
