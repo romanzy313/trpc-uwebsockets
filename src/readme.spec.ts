@@ -11,7 +11,7 @@ import {
   CreateContextOptions,
 } from './index';
 
-/* Define context. `client` is available when websocket connection is used */
+/* Define context. During websocket connection do not use `res`, use `client` instead */
 function createContext({ req, res, info, client }: CreateContextOptions) {
   const user = { name: req.headers.get('username') || 'anonymous' };
   return { req, res, user, info, client };
