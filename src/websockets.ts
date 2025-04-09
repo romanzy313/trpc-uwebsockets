@@ -84,6 +84,24 @@ export type WSConnectionHandlerOptions<TRouter extends AnyRouter> =
       CreateWSSContextFn<TRouter>
     >;
 
+export type WebsocketsKeepAlive = {
+  /**
+   * Enable heartbeat messages
+   * @default false
+   */
+  enabled: boolean;
+  /**
+   * Heartbeat interval in milliseconds
+   * @default 30_000
+   */
+  pingMs?: number | undefined;
+  /**
+   * Terminate the WebSocket if no pong is received after this many milliseconds
+   * @default 5_000
+   */
+  pongWaitMs?: number | undefined;
+};
+
 /**
  * WebSockets handler definition
  */
@@ -99,25 +117,7 @@ export type WebsocketsHandlerOptions<TRouter extends AnyRouter> =
      * @default false
      */
     ssl?: boolean | undefined;
-    keepAlive?:
-      | {
-          /**
-           * Enable heartbeat messages
-           * @default false
-           */
-          enabled: boolean;
-          /**
-           * Heartbeat interval in milliseconds
-           * @default 30_000
-           */
-          pingMs?: number | undefined;
-          /**
-           * Terminate the WebSocket if no pong is received after this many milliseconds
-           * @default 5_000
-           */
-          pongWaitMs?: number | undefined;
-        }
-      | undefined;
+    keepAlive?: WebsocketsKeepAlive | undefined;
     /**
      * Disable responding to ping messages from the client
      * **Not recommended** - this is mainly used for testing

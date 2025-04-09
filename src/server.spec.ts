@@ -34,7 +34,11 @@ import {
   applyRequestHandler,
   CreateHandlerOptions,
 } from './requestHandler';
-import { applyWebsocketHandler } from './websockets';
+import {
+  applyWebsocketHandler,
+  WebSocketBehaviorOptions,
+  WebsocketsKeepAlive,
+} from './websockets';
 
 const config = {
   prefix: '/trpc',
@@ -79,8 +83,6 @@ async function createContext({ req, res, info, client }: CreateContextOptions) {
   return { req, res, user, info, client };
 }
 
-type Context = Awaited<ReturnType<typeof createContext>>;
-
 interface Message {
   id: string;
 }
@@ -90,7 +92,7 @@ function createAppRouter() {
   const onNewMessageSubscription = vi.fn();
   const onSubscriptionEnded = vi.fn();
 
-  const t = initTRPC.context<Context>().create();
+  const t = initTRPC.create();
   const router = t.router;
   const publicProcedure = t.procedure;
 
@@ -110,7 +112,7 @@ function createAppRouter() {
           .nullish()
       )
       .query(({ input, ctx }) => ({
-        text: `hello ${input?.username ?? ctx.user?.name ?? 'world'}`,
+        text: `hello ${input?.username ?? (ctx as any).user?.name ?? 'world'}`,
       })),
     helloMutation: publicProcedure
       .input(z.string())
@@ -126,7 +128,7 @@ function createAppRouter() {
         })
       )
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.name === 'anonymous') {
+        if ((ctx as any).user.name === 'anonymous') {
           return { error: 'Unauthorized user' };
         }
         const { id, data } = input;
@@ -148,10 +150,12 @@ function createAppRouter() {
       return sub;
     }),
     pubSub: publicProcedure.input(z.null()).subscription(({ ctx }) => {
-      if (!ctx.client) {
+      // TODO: fix all these
+      const anyContext = ctx as any;
+      if (!anyContext.client) {
         throw new Error('assertion: client should never be null in websockets');
       }
-      const client = ctx.client!;
+      const client = anyContext.client!;
       // for some reason client.publish does not work...
       // currently okay is false, not sure why uWs behaves this way
       // publishing from the server works though
@@ -186,7 +190,7 @@ function createAppRouter() {
     }),
     request: router({
       info: publicProcedure.query(({ ctx }) => {
-        return ctx.info;
+        return (ctx as any).info;
       }),
     }),
     deferred: publicProcedure
@@ -236,7 +240,10 @@ type CreateAppRouter = Awaited<ReturnType<typeof createAppRouter>>;
 type AppRouter = CreateAppRouter['appRouter'];
 
 interface ServerOptions {
+  createContext?: () => Promise<any>;
   appRouter: AppRouter;
+  uWsBehaviorOptions?: WebSocketBehaviorOptions;
+  keepAlive?: WebsocketsKeepAlive;
 }
 
 function createServer(opts: ServerOptions) {
@@ -244,14 +251,16 @@ function createServer(opts: ServerOptions) {
 
   const router = opts.appRouter;
 
+  const onErrorSpy = vi.fn();
+
   applyRequestHandler(instance, {
     prefix: config.prefix,
     ssl: false,
     trpcOptions: {
       router,
-      createContext,
+      createContext: opts.createContext ?? createContext,
       onError(data) {
-        // console.error('trpc error', data);
+        onErrorSpy(data);
       },
       responseMeta({ ctx, paths, type, errors }) {
         return {
@@ -264,8 +273,14 @@ function createServer(opts: ServerOptions) {
   });
   applyWebsocketHandler(instance, {
     prefix: config.prefix,
+    ssl: false,
     router,
-    createContext,
+    createContext: opts.createContext ?? createContext,
+    onError(data) {
+      onErrorSpy(data);
+    },
+    uWsBehaviorOptions: opts.uWsBehaviorOptions,
+    keepAlive: opts.keepAlive,
   });
 
   instance.get('/hello', async (res, req) => {
@@ -274,17 +289,14 @@ function createServer(opts: ServerOptions) {
   instance.post('/hello', async (res, req) => {
     res.end(JSON.stringify({ hello: 'POST', body: 'TODO, why?' }));
   });
-
   instance.ws('/ws', {
     message: (client, rawMsg) => {
       client.send(rawMsg);
     },
   });
-
   instance.ws('/pubsub', {
     open: (client) => {
       const ok = client.subscribe('topic');
-
       if (!ok) {
         throw new Error("assertion: failed to subscribe to 'topic'");
       }
@@ -318,28 +330,36 @@ function createServer(opts: ServerOptions) {
     },
     port,
     instance,
+    onErrorSpy,
   };
 }
 
-const orderedResults: number[] = [];
-const linkSpy: TRPCLink<AppRouter> = () => {
-  // here we just got initialized in the app - this happens once per app
-  // useful for storing cache for instance
-  return ({ next, op }) => {
-    // this is when passing the result to the next link
-    // each link needs to return an observable which propagates results
-    return observable((observer) => {
-      const unsubscribe = next(op).subscribe({
-        next(value) {
-          orderedResults.push(value.result.data as number);
-          observer.next(value);
-        },
-        error: observer.error,
+function makeLinkSpy() {
+  const orderedResults: number[] = [];
+  const linkSpy: TRPCLink<AppRouter> = () => {
+    // here we just got initialized in the app - this happens once per app
+    // useful for storing cache for instance
+    return ({ next, op }) => {
+      // this is when passing the result to the next link
+      // each link needs to return an observable which propagates results
+      return observable((observer) => {
+        const unsubscribe = next(op).subscribe({
+          next(value) {
+            orderedResults.push(value.result.data as number);
+            observer.next(value);
+          },
+          error: observer.error,
+        });
+        return unsubscribe;
       });
-      return unsubscribe;
-    });
+    };
   };
-};
+
+  return {
+    orderedResults,
+    linkSpy,
+  };
+}
 
 interface ClientOptions {
   wsClientOptions?: Omit<WebSocketClientOptions, 'url'> | undefined;
@@ -361,16 +381,18 @@ function createClientWs(opts: ClientOptions) {
     ...opts.wsClientOptions,
     url: `ws://${host}`,
   });
+  const { orderedResults, linkSpy } = makeLinkSpy();
   const client = createTRPCClient<AppRouter>({
     links: [linkSpy, wsLink({ client: wsClient })],
   });
 
-  return { client, wsClient };
+  return { client, wsClient, orderedResults };
 }
 
 function createClientBatchStream(opts: ClientOptions) {
   const qs = toQueryString(opts.queryParams ?? {});
   const host = `localhost:${opts.port}${config.prefix}${qs}`;
+  const { orderedResults, linkSpy } = makeLinkSpy();
   const client = createTRPCClient<AppRouter>({
     links: [
       linkSpy,
@@ -381,7 +403,7 @@ function createClientBatchStream(opts: ClientOptions) {
     ],
   });
 
-  return { client };
+  return { client, orderedResults };
 }
 
 function createClientBatch(opts: ClientOptions) {
@@ -399,12 +421,14 @@ function createClientBatch(opts: ClientOptions) {
   return { client };
 }
 
-function createClientSSE(opts: ClientOptions) {
+function createClientSse(opts: ClientOptions) {
   const qs = toQueryString(opts.queryParams ?? {});
   const host = `localhost:${opts.port}${config.prefix}${qs}`;
+
+  const { orderedResults, linkSpy } = makeLinkSpy();
   const client = createTRPCClient<AppRouter>({
     links: [
-      // loggerLink(),
+      linkSpy,
       httpSubscriptionLink({
         url: `http://${host}`,
         connectionParams: opts.wsClientOptions?.connectionParams,
@@ -413,12 +437,13 @@ function createClientSSE(opts: ClientOptions) {
       }),
     ],
   });
-  return { client };
+  return { client, orderedResults };
 }
-type ClientType = 'batchStream' | 'batch' | 'sse';
+
 async function createApp(serverOptions?: Partial<ServerOptions> | undefined) {
-  const { appRouter, ee } = createAppRouter();
-  const { instance, port, stop } = createServer({
+  const { appRouter, ee, onNewMessageSubscription, onSubscriptionEnded } =
+    createAppRouter();
+  const { instance, port, stop, onErrorSpy } = createServer({
     ...(serverOptions ?? {}),
     appRouter,
   });
@@ -426,31 +451,25 @@ async function createApp(serverOptions?: Partial<ServerOptions> | undefined) {
   return {
     server: instance,
     stop,
-    getClient(
-      clientType: ClientType,
-      clientOptions?: Partial<ClientOptions> | undefined
-    ) {
-      switch (clientType) {
-        case 'batchStream':
-          return createClientBatchStream({
-            ...clientOptions,
-            port,
-          });
-        case 'batch':
-          return createClientBatch({
-            ...clientOptions,
-            port,
-          });
-        case 'sse':
-          return createClientSSE({
-            ...clientOptions,
-            port,
-          });
-        default:
-          throw new Error('unknown client');
-      }
+    clientBatchStream(clientOptions?: Partial<ClientOptions> | undefined) {
+      return createClientBatchStream({
+        ...clientOptions,
+        port,
+      });
     },
-    getClientWs(clientOptions?: Partial<ClientOptions> | undefined) {
+    clientBatch(clientOptions?: Partial<ClientOptions> | undefined) {
+      return createClientBatch({
+        ...clientOptions,
+        port,
+      });
+    },
+    clientSse(clientOptions?: Partial<ClientOptions> | undefined) {
+      return createClientSse({
+        ...clientOptions,
+        port,
+      });
+    },
+    clientWs(clientOptions?: Partial<ClientOptions> | undefined) {
       return createClientWs({
         ...clientOptions,
         port,
@@ -462,9 +481,17 @@ async function createApp(serverOptions?: Partial<ServerOptions> | undefined) {
   };
 }
 
+// async function factory(config?: {
+//   createContext?: () => Promise<any>;
+//   appRounter?;
+// }) {
+//   const instance = uWs.App();
+
+//   const router = opts.appRouter;
+// }
+
 let app: Awaited<ReturnType<typeof createApp>>;
 beforeEach(async () => {
-  orderedResults.length = 0;
   app = await createApp();
 });
 
@@ -497,7 +524,7 @@ describe('server', () => {
   test('query', async () => {
     {
       // batch stream
-      const { client } = app.getClient('batchStream');
+      const { client } = app.clientBatchStream();
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -517,7 +544,7 @@ describe('server', () => {
 
     {
       // batch
-      const { client } = app.getClient('batch');
+      const { client } = app.clientBatch();
       expect(await client.ping.query()).toMatchInlineSnapshot(`"pong"`);
       expect(await client.hello.query()).toMatchInlineSnapshot(`
           Object {
@@ -539,7 +566,7 @@ describe('server', () => {
   test('mutation', async () => {
     {
       // batch stream
-      const { client } = app.getClient('batchStream');
+      const { client } = app.clientBatchStream();
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -553,7 +580,7 @@ describe('server', () => {
     }
     {
       // batch
-      const { client } = app.getClient('batch');
+      const { client } = app.clientBatch();
       expect(
         await client.editPost.mutate({
           id: '42',
@@ -568,7 +595,7 @@ describe('server', () => {
   });
 
   test('streaming', async () => {
-    const { client } = app.getClient('batchStream');
+    const { client, orderedResults } = app.clientBatchStream();
     const results = await Promise.all([
       client.deferred.query({ wait: 3 }),
       client.deferred.query({ wait: 1 }),
@@ -581,7 +608,7 @@ describe('server', () => {
   test('batched requests in body work correctly', async () => {
     {
       // batch stream
-      const { client } = app.getClient('batchStream');
+      const { client } = app.clientBatchStream();
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -592,7 +619,7 @@ describe('server', () => {
 
     {
       //batch
-      const { client } = app.getClient('batch');
+      const { client } = app.clientBatch();
 
       const res = await Promise.all([
         client.helloMutation.mutate('world'),
@@ -604,7 +631,7 @@ describe('server', () => {
 
   test('handles throwing procedure', async () => {
     // batch stream
-    const { client } = app.getClient('batchStream');
+    const { client } = app.clientBatchStream();
     await expect(
       client.throw.query('expected_procedure_error')
     ).rejects.toThrowErrorMatchingInlineSnapshot(
@@ -613,7 +640,7 @@ describe('server', () => {
   });
 
   test('handles throwing context', async () => {
-    const { client } = app.getClient('batchStream', {
+    const { client } = app.clientBatchStream({
       headers: {
         throw: 'expected_context_error',
       },
@@ -628,7 +655,7 @@ describe('server', () => {
   // TODO: test failure of context as in v10
 
   test('subscription - sse', { timeout: 5000 }, async () => {
-    const { client } = app.getClient('sse');
+    const { client } = app.clientSse();
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -723,7 +750,7 @@ describe('websocket', () => {
   });
 
   test('basic functionality', async () => {
-    const { client } = app.getClientWs();
+    const { client } = app.clientWs();
 
     app.ee.once('subscription:created', () => {
       setTimeout(() => {
@@ -789,7 +816,7 @@ describe('websocket', () => {
   });
 
   test('handles throwing procedure', async () => {
-    const { client } = app.getClientWs();
+    const { client } = app.clientWs();
 
     let error: any = null;
 
@@ -814,7 +841,7 @@ describe('websocket', () => {
   test('handles throwing context with connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClientWs({
+    const { client } = app.clientWs({
       wsClientOptions: {
         connectionParams: {
           throw: 'expected_context_error',
@@ -849,7 +876,7 @@ describe('websocket', () => {
   test('handles throwing context without connection params', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client } = app.getClientWs({
+    const { client } = app.clientWs({
       queryParams: {
         throw: 'expected_context_error',
       },
@@ -897,7 +924,7 @@ describe('websocket', () => {
 
     expect(app.server.numSubscribers('topic')).toBe(1);
 
-    const { client } = app.getClientWs();
+    const { client } = app.clientWs();
     const sub = client.pubSub.subscribe(null, {
       onData(data) {
         console.log('trpc onMessage', data);
@@ -919,7 +946,7 @@ describe('websocket', () => {
   test('keep alive', async () => {
     let closeCode: number | undefined = undefined;
 
-    const { client, wsClient } = app.getClientWs({
+    const { client, wsClient } = app.clientWs({
       wsClientOptions: {
         onClose(cause) {
           closeCode = cause?.code;
