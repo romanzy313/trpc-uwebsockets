@@ -29,13 +29,13 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "^11.1.2",
+    "@trpc/server": "^11.1.3",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.24.0",
-    "@trpc/client": "^11.1.2",
+    "@trpc/client": "^11.1.3",
     "@types/node": "^20.11.5",
     "@types/node-fetch": "^2.6.12",
     "@types/ws": "^8.5.10",
