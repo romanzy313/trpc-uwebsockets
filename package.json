@@ -6,8 +6,7 @@
   "type": "commonjs",
   "types": "./types/index.d.ts",
   "engines": {
-    "node": "^22.11.0",
-    "yarn": "1.x"
+    "node": "^22.11.0"
   },
   "scripts": {
     "start": "jest --watch",
