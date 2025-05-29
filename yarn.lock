@@ -852,22 +852,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trpc/client@npm:^11.1.3":
-  version: 11.1.3
-  resolution: "@trpc/client@npm:11.1.3"
+"@trpc/client@npm:^11.1.4":
+  version: 11.1.4
+  resolution: "@trpc/client@npm:11.1.4"
   peerDependencies:
-    "@trpc/server": 11.1.3
+    "@trpc/server": 11.1.4
     typescript: ">=5.7.2"
-  checksum: 10c0/8a1aaee8fe71813a84c4dbc36f6416511984e55458feb595c39f2a3ed1aa77f7977a2c8b865be81e26f8c9870749d3d9ba72977ae8629f6da8eb9a07d94ee2f7
+  checksum: 10c0/75a45beb61041ab2f8741aa83509247552aa76c44676a964c9ae6e2c2b01cedfa95aebc1fdc93b3592830bd03ba77468fd477db24850b44ba774d102070422ea
   languageName: node
   linkType: hard
 
-"@trpc/server@npm:^11.1.3":
-  version: 11.1.3
-  resolution: "@trpc/server@npm:11.1.3"
+"@trpc/server@npm:^11.1.4":
+  version: 11.1.4
+  resolution: "@trpc/server@npm:11.1.4"
   peerDependencies:
     typescript: ">=5.7.2"
-  checksum: 10c0/b76ad62dde43dc75cea34bc71e9645cde956d6a7989973e2d79a06d533c4921ac65d11d5f3c652cf4c1927d4cbfd47c91c44e7ee82bf8032b37315b1ddb8dad7
+  checksum: 10c0/bfa740cbd8131d816cee751d84c771178ea9fc15b69fd44f859fa2c4997377cae0d3e430d284cd4c642c34f59644f47d4650599b0d24c09895d158e5849b7c3c
   languageName: node
   linkType: hard
 
@@ -3729,8 +3729,8 @@ __metadata:
   dependencies:
     "@eslint/eslintrc": "npm:^3.3.1"
     "@eslint/js": "npm:^9.24.0"
-    "@trpc/client": "npm:^11.1.3"
-    "@trpc/server": "npm:^11.1.3"
+    "@trpc/client": "npm:^11.1.4"
+    "@trpc/server": "npm:^11.1.4"
     "@types/node": "npm:^20.11.5"
     "@types/node-fetch": "npm:^2.6.12"
     "@types/ws": "npm:^8.5.10"
