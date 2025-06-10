@@ -3754,6 +3754,8 @@ __metadata:
     vitest: "npm:^3.1.1"
     ws: "npm:^8.18.1"
     zod: "npm:^3.24.2"
+  peerDependencies:
+    uWebSockets.js: "*"
   languageName: unknown
   linkType: soft
 
