@@ -10,6 +10,12 @@ npm install trpc-uwebsockets
 
 The versioning of the adapter follows the versioning scheme of trpc. For example, for the `@trpc/server` version of `11.0.0`, the npm package for `trpc-uwebsockets` will have version `11.0.X`, where X is incrementing library version. Ensure that the version of `@trpc/server` and `@trpc/client` matches the version of `trpc-uwebsockets`. Your package manager should provide warnings such as "incorrect peer dependency" if something is wrong.
 
+```bash
+npm install uNetworking/uWebSockets.js#v20.51.0
+```
+
+Installation of uWebSockets.js must be done separately, as it is a peer dependency of the project. Version 20.51.0 or higher is required.
+
 # Usage
 
 This full example can be found [here](src/readme.spec.ts).

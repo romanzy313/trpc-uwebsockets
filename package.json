@@ -28,8 +28,7 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "^11.1.4",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0"
+    "@trpc/server": "^11.1.4"
   },
   "peerDependencies": {
     "uWebSockets.js": "*"
@@ -56,6 +55,7 @@
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.51.0",
     "vite": "^6.2.5",
     "vitest": "^3.1.1",
     "ws": "^8.18.1",
