@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:publish": "yarn test && yarn build && yarn pack",
+    "bump-version": "node ./bumpVersion.js && yarn install && yarn test",
     "publish:main": "yarn npm publish",
     "publish:canary": "yarn npm publish --tag canary",
     "prepack": "yarn build",
