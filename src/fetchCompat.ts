@@ -160,6 +160,7 @@ function createBody(
       });
     },
     cancel() {
+      res.aborted = true;
       res.cork(() => {
         res.close();
       });
