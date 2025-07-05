@@ -154,12 +154,14 @@ function createBody(
 
       res.onAborted(() => {
         if (!hasClosed) {
+          res.aborted = true;
           hasClosed = true;
           controller.error(new TRPCError({ code: 'CLIENT_CLOSED_REQUEST' }));
         }
       });
     },
     cancel() {
+      res.aborted = true;
       res.cork(() => {
         res.close();
       });
