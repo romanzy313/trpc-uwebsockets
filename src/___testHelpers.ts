@@ -303,10 +303,14 @@ export function testFactory<AppRouter extends AnyTRPCRouter>(
       });
     },
     clientWs(clientOptions?: Partial<ClientOptions> | undefined) {
-      return createClientWs(serverOptions.appRouter, {
-        ...clientOptions,
-        port,
-      });
+      const { client, wsClient, orderedResults } = createClientWs(
+        serverOptions.appRouter,
+        {
+          ...clientOptions,
+          port,
+        }
+      );
+      return { client, wsClient, orderedResults };
     },
   };
 }
