@@ -192,7 +192,6 @@ export async function uWsSendResponseStreamed(
   res: HttpResponseDecorated
 ): Promise<void> {
   if (res.aborted) return;
-
   res.cork(() => {
     res.writeStatus(fetchRes.status.toString());
     fetchRes.headers.forEach((value, key) => {
@@ -200,30 +199,43 @@ export async function uWsSendResponseStreamed(
     });
   });
 
-  if (fetchRes.body) {
-    const reader = fetchRes.body.getReader();
-
-    while (true) {
-      const { value, done } = await reader.read();
-
-      if (res.aborted) {
-        return;
-      }
-
-      if (done) {
-        res.cork(() => {
-          res.end();
-        });
-        return;
-      }
-
+  if (!fetchRes.body) {
+    if (!res.aborted) {
       res.cork(() => {
-        res.write(value);
+        res.end();
       });
     }
-  } else {
-    res.cork(() => {
-      res.end();
-    });
+    return;
+  }
+
+  const reader = fetchRes.body.getReader();
+
+  try {
+    while (true) {
+      if (res.aborted) break;
+      const { value, done } = await reader.read();
+
+      if (res.aborted) break;
+
+      if (done) {
+        if (!res.aborted) {
+          res.cork(() => {
+            res.end();
+          });
+        }
+        break;
+      }
+
+      if (!res.aborted) {
+        res.cork(() => {
+          res.write(value);
+        });
+      }
+    }
+  } finally {
+    // let the reader know that nothing will be read from it
+    // potentially useful during res.aborted early return; also should theoretically help GC clean up the reader?
+    // this may not be needed, but lets keep it here just in case
+    reader.releaseLock();
   }
 }
