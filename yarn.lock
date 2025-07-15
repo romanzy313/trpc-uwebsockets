@@ -852,7 +852,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trpc/client@npm:^11.4.2":
+"@trpc/client@npm:^11.4.3":
   version: 11.4.3
   resolution: "@trpc/client@npm:11.4.3"
   peerDependencies:
@@ -862,7 +862,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trpc/server@npm:^11.4.2":
+"@trpc/server@npm:^11.4.3":
   version: 11.4.3
   resolution: "@trpc/server@npm:11.4.3"
   peerDependencies:
@@ -3729,8 +3729,8 @@ __metadata:
   dependencies:
     "@eslint/eslintrc": "npm:^3.3.1"
     "@eslint/js": "npm:^9.24.0"
-    "@trpc/client": "npm:^11.4.2"
-    "@trpc/server": "npm:^11.4.2"
+    "@trpc/client": "npm:^11.4.3"
+    "@trpc/server": "npm:^11.4.3"
     "@types/node": "npm:^20.11.5"
     "@types/node-fetch": "npm:^2.6.12"
     "@types/ws": "npm:^8.5.10"

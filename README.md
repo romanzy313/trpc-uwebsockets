@@ -231,3 +231,7 @@ Big thanks to [Ahoy Labs](https://github.com/ahoylabs) for sponsoring the develo
 <!-- # TODOS:
  - Make test "aborted requests are handled" less flaky
  - Skipped test "uWebsockets pubsub" doesn't work as intended... But usage of built-in pubsub is not needed with trpc  -->
+
+<!-- Publishing notes:
+Set env variable `YARN_NPM_AUTH_TOKEN` before running `yarn publish:main`
+ -->
