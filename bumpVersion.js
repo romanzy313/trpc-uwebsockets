@@ -72,10 +72,10 @@ async function updateVersions() {
     console.log('📝 Planned changes:');
     console.log(`   Project version: ${packageJson.version} → ${newVersion}`);
     console.log(
-      `   @trpc/server: ${packageJson.dependencies['@trpc/server']} → ^${newVersion}`
+      `   @trpc/server: ${packageJson.dependencies['@trpc/server']} → ${newVersion}`
     );
     console.log(
-      `   @trpc/client: ${packageJson.devDependencies['@trpc/client']} → ^${newVersion}`
+      `   @trpc/client: ${packageJson.devDependencies['@trpc/client']} → ${newVersion}`
     );
     console.log('');
 
@@ -89,8 +89,8 @@ async function updateVersions() {
 
     // Update versions
     packageJson.version = newVersion;
-    packageJson.dependencies['@trpc/server'] = `^${newVersion}`;
-    packageJson.devDependencies['@trpc/client'] = `^${newVersion}`;
+    packageJson.dependencies['@trpc/server'] = `${newVersion}`;
+    packageJson.devDependencies['@trpc/client'] = `${newVersion}`;
 
     // Write back to package.json with proper formatting
     fs.writeFileSync(
