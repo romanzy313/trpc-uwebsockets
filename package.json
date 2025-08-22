@@ -1,7 +1,7 @@
 {
   "name": "trpc-uwebsockets",
   "description": "tRPC adapter for uWebSockets.js server",
-  "version": "11.4.3",
+  "version": "11.4.4",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",

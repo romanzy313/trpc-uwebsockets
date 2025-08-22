@@ -45,6 +45,8 @@ async function checkVersions() {
       console.error(`   @trpc/client: ${clientVersion}`);
       process.exit(1);
     }
+
+    console.log(` ✅ Version ${serverVersion} check complete`);
   } catch (error) {
     console.error('❌ Error checking versions:', error.message);
     process.exit(1);
