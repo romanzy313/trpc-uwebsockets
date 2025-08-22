@@ -15,7 +15,12 @@ const compat = new FlatCompat({
 });
 
 export default defineConfig([
-  globalIgnores(['**/dist', '**/.eslintrc.js', 'bumpVersion.js']),
+  globalIgnores([
+    '**/dist',
+    '**/.eslintrc.js',
+    'bumpVersion.js',
+    'checkVersion.js',
+  ]),
   {
     extends: compat.extends(
       'eslint:recommended',
