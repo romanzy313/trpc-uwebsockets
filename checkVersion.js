@@ -46,7 +46,7 @@ async function checkVersions() {
       process.exit(1);
     }
 
-    console.log(` ✅ Version ${serverVersion} check complete`);
+    console.log(` ✅ Version ${packageJson.version} check complete`);
   } catch (error) {
     console.error('❌ Error checking versions:', error.message);
     process.exit(1);

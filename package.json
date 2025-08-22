@@ -1,7 +1,7 @@
 {
   "name": "trpc-uwebsockets",
   "description": "tRPC adapter for uWebSockets.js server",
-  "version": "11.4.4",
+  "version": "11.5.0",
   "main": "./dist/index.js",
   "type": "commonjs",
   "types": "./types/index.d.ts",
@@ -17,10 +17,10 @@
     "test:coverage": "vitest --coverage",
     "test:publish": "yarn test && yarn build && yarn pack",
     "bump-version": "node ./bumpVersion.js && yarn install && yarn test",
-    "publish:main": "node ./checkVersion.js && yarn npm publish",
+    "publish:main": "yarn npm publish",
     "publish:canary": "yarn npm publish --tag canary",
     "prepack": "yarn build",
-    "prepublish": "yarn clean && yarn prettier && yarn lint && yarn test",
+    "prepublish": "node ./checkVersion.js && yarn clean && yarn prettier && yarn lint && yarn test",
     "clean": "rimraf -rf ./dist && rimraf -rf ./types && rimraf -rf ./coverage && rimraf -rf ./package.tgz",
     "format": "yarn clean && yarn prettier && yarn lint",
     "lint": "eslint src/**/*.ts --fix",
@@ -29,7 +29,7 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "11.4.4"
+    "@trpc/server": "11.5.0"
   },
   "peerDependencies": {
     "uWebSockets.js": "*"
@@ -37,7 +37,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.24.0",
-    "@trpc/client": "11.4.4",
+    "@trpc/client": "11.5.0",
     "@types/node": "^20.11.5",
     "@types/node-fetch": "^2.6.12",
     "@types/ws": "^8.5.10",
