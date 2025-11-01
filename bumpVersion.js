@@ -36,47 +36,57 @@ async function updateVersions() {
 
     // Read package.json
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const projectVersion = packageJson.version;
+    const serverVersion = packageJson.dependencies['@trpc/server'];
+    const clientVersion = packageJson.devDependencies['@trpc/client'];
 
     console.log('🔍 Current versions:');
-    console.log(`   Project: ${packageJson.version}`);
-    console.log(`   @trpc/server: ${packageJson.dependencies['@trpc/server']}`);
-    console.log(
-      `   @trpc/client: ${packageJson.devDependencies['@trpc/client']}`
-    );
+    console.log(`   Project: ${projectVersion}`);
+    console.log(`   @trpc/server: ${serverVersion}`);
+    console.log(`   @trpc/client: ${clientVersion}`);
     console.log('');
 
     // Get new version from user
-    let newVersion;
-    while (true) {
-      newVersion = await promptUser('Enter new version (e.g., 11.3.0): ');
+    let newVersion = null;
 
-      if (!newVersion) {
-        console.log(
-          '❌ Version cannot be empty. Please enter a valid version.'
-        );
-        continue;
+    if (serverVersion === clientVersion && serverVersion !== projectVersion) {
+      console.log(`Detected update. Bump project version to ${serverVersion}?`);
+
+      const confirm = await promptUser('Confirm (y/N): ');
+      if (confirm.toLowerCase() === 'y') {
+        newVersion = serverVersion;
+      } else {
+        console.log('Using manual updating.');
       }
-
-      if (!isValidSemver(newVersion)) {
-        console.log(
-          '❌ Invalid version format. Please use semantic versioning (e.g., 1.2.3).'
-        );
-        continue;
-      }
-
-      break;
     }
 
+    if (!newVersion) {
+      while (true) {
+        newVersion = await promptUser('Enter new version (e.g., 11.3.0): ');
+
+        if (!newVersion) {
+          console.log(
+            '❌ Version cannot be empty. Please enter a valid version.'
+          );
+          continue;
+        }
+
+        if (!isValidSemver(newVersion)) {
+          console.log(
+            '❌ Invalid version format. Please use semantic versioning (e.g., 1.2.3).'
+          );
+          continue;
+        }
+
+        break;
+      }
+    }
     // Ask for confirmation
     console.log('');
     console.log('📝 Planned changes:');
-    console.log(`   Project version: ${packageJson.version} → ${newVersion}`);
-    console.log(
-      `   @trpc/server: ${packageJson.dependencies['@trpc/server']} → ${newVersion}`
-    );
-    console.log(
-      `   @trpc/client: ${packageJson.devDependencies['@trpc/client']} → ${newVersion}`
-    );
+    console.log(`   Project version: ${projectVersion} → ${newVersion}`);
+    console.log(`   @trpc/server: ${serverVersion} → ${newVersion}`);
+    console.log(`   @trpc/client: ${clientVersion} → ${newVersion}`);
     console.log('');
 
     const confirm = await promptUser('Proceed with these changes? (Y/n): ');
@@ -101,17 +111,6 @@ async function updateVersions() {
 
     console.log('');
     console.log('✅ Successfully updated package.json!');
-    // console.log('');
-    // console.log('📋 Next steps:');
-    // console.log('   1. Review the changes: git diff package.json');
-    // console.log('   2. Install updated dependencies: yarn install');
-    // console.log('   3. Run tests: yarn test');
-    // console.log(
-    //   '   4. Commit changes: git add package.json && git commit -m "bump version to ' +
-    //     newVersion +
-    //     '"'
-    // );
-    // console.log('   5. Create git tag: git tag v' + newVersion);
   } catch (error) {
     console.error('❌ Error updating versions:', error.message);
     process.exit(1);
