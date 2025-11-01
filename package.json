@@ -29,7 +29,7 @@
     "prettier:dry": "prettier src/**/*.ts --config .prettierrc"
   },
   "dependencies": {
-    "@trpc/server": "11.7.0"
+    "@trpc/server": "11.7.1"
   },
   "peerDependencies": {
     "uWebSockets.js": "*"
@@ -42,7 +42,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.24.0",
-    "@trpc/client": "11.7.0",
+    "@trpc/client": "11.7.1",
     "@types/node": "^20.11.5",
     "@types/node-fetch": "^2.6.12",
     "@types/ws": "^8.5.10",
