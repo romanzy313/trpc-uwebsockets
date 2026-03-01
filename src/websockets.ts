@@ -216,7 +216,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
 
   async function handleRequest(
     client: WebSocket<WebsocketData>,
-    msg: TRPCClientOutgoingMessage
+    msg: TRPCClientOutgoingMessage,
+    batchIndex: number
   ) {
     const { clientSubscriptions, ctx, req } = client.getUserData();
 
@@ -262,6 +263,7 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         ctx,
         type,
         signal: abortController.signal,
+        batchIndex,
       });
 
       const isIterableResult = isAsyncIterable(result) || isObservable(result);
@@ -572,8 +574,8 @@ export function getWSConnectionHandler<TRouter extends AnyRouter>(
         const msgs: unknown[] = Array.isArray(msgJSON) ? msgJSON : [msgJSON];
         const promises = msgs
           .map((raw) => parseTRPCMessage(raw, transformer))
-          .map((msg) => {
-            return handleRequest(client, msg);
+          .map((msg, index) => {
+            return handleRequest(client, msg, index);
           });
         await Promise.all(promises);
       } catch (cause) {
